@@ -1,5 +1,15 @@
 basePath: /api/v1
 definitions:
+  dto.AnswerForTestSubmission:
+    properties:
+      question_id:
+        type: integer
+      user_answer:
+        type: string
+    required:
+    - question_id
+    - user_answer
+    type: object
   dto.AttemptResponse:
     properties:
       ai_feedback:
@@ -136,6 +146,36 @@ definitions:
     required:
     - question_id
     - user_answer
+    type: object
+  dto.SubmitFullTestRequest:
+    properties:
+      answers:
+        items:
+          $ref: '#/definitions/dto.AnswerForTestSubmission'
+        type: array
+      user_id:
+        description: Optional User ID
+        type: integer
+    required:
+    - answers
+    type: object
+  dto.SubmitFullTestResponse:
+    properties:
+      attempts:
+        items:
+          $ref: '#/definitions/dto.AttemptResponse'
+        type: array
+      errors:
+        description: To report any partial failures
+        items:
+          type: string
+        type: array
+      submitted_count:
+        type: integer
+      test_id:
+        type: integer
+      user_id:
+        type: integer
     type: object
   dto.TestResponse:
     properties:
@@ -605,6 +645,47 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       summary: Add a question to an existing test
+      tags:
+      - tests
+  /tests/{id}/submit:
+    post:
+      consumes:
+      - application/json
+      description: User submits a collection of answers for all (or some) questions
+        in a test.
+      parameters:
+      - description: Test ID to submit answers for
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: User ID and list of answers (question_id, user_answer)
+        in: body
+        name: submission_data
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SubmitFullTestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully submitted with details of created attempts
+          schema:
+            $ref: '#/definitions/dto.SubmitFullTestResponse'
+        "400":
+          description: Invalid request body, Test ID, or invalid question IDs within
+            submission
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Test not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error during submission processing
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Submit all answers for a specific test
       tags:
       - tests
 schemes:

@@ -676,9 +676,83 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/tests/{id}/submit": {
+            "post": {
+                "description": "User submits a collection of answers for all (or some) questions in a test.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tests"
+                ],
+                "summary": "Submit all answers for a specific test",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Test ID to submit answers for",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "User ID and list of answers (question_id, user_answer)",
+                        "name": "submission_data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.SubmitFullTestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully submitted with details of created attempts",
+                        "schema": {
+                            "$ref": "#/definitions/dto.SubmitFullTestResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body, Test ID, or invalid question IDs within submission",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Test not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error during submission processing",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "dto.AnswerForTestSubmission": {
+            "type": "object",
+            "required": [
+                "question_id",
+                "user_answer"
+            ],
+            "properties": {
+                "question_id": {
+                    "type": "integer"
+                },
+                "user_answer": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.AttemptResponse": {
             "type": "object",
             "properties": {
@@ -872,6 +946,51 @@ const docTemplate = `{
                 },
                 "user_answer": {
                     "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.SubmitFullTestRequest": {
+            "type": "object",
+            "required": [
+                "answers"
+            ],
+            "properties": {
+                "answers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.AnswerForTestSubmission"
+                    }
+                },
+                "user_id": {
+                    "description": "Optional User ID",
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.SubmitFullTestResponse": {
+            "type": "object",
+            "properties": {
+                "attempts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.AttemptResponse"
+                    }
+                },
+                "errors": {
+                    "description": "To report any partial failures",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "submitted_count": {
+                    "type": "integer"
+                },
+                "test_id": {
+                    "type": "integer"
                 },
                 "user_id": {
                     "type": "integer"

@@ -63,7 +63,9 @@ func main() {
 			service.NewAttemptService,
 
 			// Controllers
-			controller.NewController,
+			func(qSvc service.QuestionService, attSvc service.AttemptService, tSvc service.TestService, db *gorm.DB) *controller.Controller {
+				return controller.NewController(qSvc, attSvc, tSvc, db)
+			},
 		),
 		fx.Invoke(RegisterRoutes),
 		fx.Invoke(AutoMigrateDB),

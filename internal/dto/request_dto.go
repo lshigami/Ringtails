@@ -37,3 +37,13 @@ type SubmitAttemptRequest struct {
 	QuestionID uint   `json:"question_id" binding:"required"`
 	UserAnswer string `json:"user_answer" binding:"required"`
 }
+
+type AnswerForTestSubmission struct {
+	QuestionID uint   `json:"question_id" binding:"required"`
+	UserAnswer string `json:"user_answer" binding:"required"`
+}
+
+type SubmitFullTestRequest struct {
+	UserID  *uint                     `json:"user_id"` // Optional User ID
+	Answers []AnswerForTestSubmission `json:"answers" binding:"required,dive"`
+}

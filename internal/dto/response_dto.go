@@ -39,3 +39,11 @@ type AttemptResponse struct {
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
+
+type SubmitFullTestResponse struct {
+	TestID         uint              `json:"test_id"`
+	UserID         *uint             `json:"user_id,omitempty"`
+	SubmittedCount int               `json:"submitted_count"`
+	Attempts       []AttemptResponse `json:"attempts"`
+	Errors         []string          `json:"errors,omitempty"` // To report any partial failures
+}

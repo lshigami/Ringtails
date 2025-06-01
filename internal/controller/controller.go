@@ -6,6 +6,8 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+
 	// "github.com/jinzhu/copier" // Not directly used here, but services use it
 	"github.com/lshigami/Ringtails/internal/dto"
 	"github.com/lshigami/Ringtails/internal/service"
@@ -16,13 +18,15 @@ type Controller struct {
 	questionSvc service.QuestionService
 	attemptSvc  service.AttemptService
 	testSvc     service.TestService // Add TestService
+	db          *gorm.DB
 }
 
-func NewController(qSvc service.QuestionService, attSvc service.AttemptService, tSvc service.TestService) *Controller {
+func NewController(qSvc service.QuestionService, attSvc service.AttemptService, tSvc service.TestService, db *gorm.DB) *Controller {
 	return &Controller{
 		questionSvc: qSvc,
 		attemptSvc:  attSvc,
 		testSvc:     tSvc,
+		db:          db,
 	}
 }
 
@@ -51,6 +55,7 @@ func (ctrl *Controller) RegisterRoutes(router *gin.Engine) {
 		attempts.POST("", ctrl.SubmitAttemptHandler)
 		attempts.GET("", ctrl.GetAllAttemptsHandler)
 		attempts.GET("/:id", ctrl.GetAttemptHandler)
+		tests.POST("/:id/submit", ctrl.SubmitFullTestHandler)
 	}
 }
 
@@ -554,4 +559,68 @@ func (ctrl *Controller) GetAttemptHandler(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, attemptResp)
+}
+
+// SubmitFullTestHandler godoc
+// @Summary Submit all answers for a specific test
+// @Description User submits a collection of answers for all (or some) questions in a test.
+// @Tags tests
+// @Accept json
+// @Produce json
+// @Param id path int true "Test ID to submit answers for"
+// @Param submission_data body dto.SubmitFullTestRequest true "User ID and list of answers (question_id, user_answer)"
+// @Success 200 {object} dto.SubmitFullTestResponse "Successfully submitted with details of created attempts"
+// @Failure 400 {object} dto.ErrorResponse "Invalid request body, Test ID, or invalid question IDs within submission"
+// @Failure 404 {object} dto.ErrorResponse "Test not found"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error during submission processing"
+// @Router /tests/{id}/submit [post]
+func (ctrl *Controller) SubmitFullTestHandler(c *gin.Context) {
+	testIdStr := c.Param("id")
+	testID, err := strconv.ParseUint(testIdStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid Test ID format"})
+		return
+	}
+
+	var req dto.SubmitFullTestRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Warn().Err(err).Msg("Failed to bind SubmitFullTestRequest")
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Validate if answers are provided
+	if len(req.Answers) == 0 {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "No answers provided in the submission."})
+		return
+	}
+
+	if req.UserID != nil {
+		log.Info().Uint("userID", *req.UserID).Uint64("testID", testID).Msg("SubmitFullTest request received.")
+	} else {
+		log.Info().Uint64("testID", testID).Msg("SubmitFullTest request received without UserID.")
+	}
+
+	// Truyền GORM DB instance vào service method để nó có thể quản lý transaction
+	submissionResp, err := ctrl.attemptSvc.SubmitFullTestAnswers(uint(testID), req, ctrl.db)
+	if err != nil {
+		log.Error().Err(err).Uint64("testID", testID).Msg("Error submitting full test answers")
+		// Lỗi có thể là do test không tìm thấy, lỗi DB, v.v.
+		// Service nên trả về các lỗi cụ thể hơn nếu có thể để controller map sang status code phù hợp
+		if _, ok := err.(interface{ NotFound() }); ok { // Example check for a custom "not found" error
+			c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to process full test submission: " + err.Error()})
+		}
+		return
+	}
+
+	// Kiểm tra xem có lỗi từng phần trong quá trình xử lý không
+	if len(submissionResp.Errors) > 0 {
+		log.Warn().Interface("partial_errors", submissionResp.Errors).Msg("Partial errors occurred during full test submission")
+		// Trả về 207 Multi-Status nếu một số thành công, một số lỗi, hoặc 200 với danh sách lỗi
+		// Để đơn giản, trả 200 OK nhưng bao gồm errors trong response body
+	}
+
+	c.JSON(http.StatusOK, submissionResp)
 }
