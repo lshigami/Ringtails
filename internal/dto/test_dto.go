@@ -27,11 +27,14 @@ type TestResponseDTO struct {
 
 // TestSummaryDTO is used for listing tests available to users.
 type TestSummaryDTO struct {
-	ID            uint      `json:"id"`
-	Title         string    `json:"title"`
-	Description   string    `json:"description,omitempty"`
-	QuestionCount int       `json:"question_count"`
-	CreatedAt     time.Time `json:"created_at"`
+	ID                 uint      `json:"id"`
+	Title              string    `json:"title"`
+	Description        string    `json:"description,omitempty"`
+	QuestionCount      int       `json:"question_count"`
+	CreatedAt          time.Time `json:"created_at"`
+	HasAttemptedByUser *bool     `json:"has_attempted_by_user,omitempty"` // True if the specified user has at least one attempt for this test. Omit if no user_id provided.
+	LastAttemptStatus  *string   `json:"last_attempt_status,omitempty"`   // Status of the user's most recent attempt, if any.
+	LastAttemptScore   *float64  `json:"last_attempt_score,omitempty"`    // Score of the user's most recent attempt, if any.
 }
 
 // --- DTOs for Test Attempts (User submitting and viewing attempts) ---

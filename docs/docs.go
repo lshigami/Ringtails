@@ -119,7 +119,7 @@ const docTemplate = `{
         },
         "/tests": {
             "get": {
-                "description": "Get a list of tests with summary information.",
+                "description": "Get a list of tests. If 'user_id' query param is provided, includes attempt status for that user.",
                 "produces": [
                     "application/json"
                 ],
@@ -127,6 +127,14 @@ const docTemplate = `{
                     "User - Tests \u0026 Attempts"
                 ],
                 "summary": "(User) List all available tests",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Optional User ID to check attempt status against",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -135,6 +143,12 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.TestSummaryDTO"
                             }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid User ID format",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
                         }
                     },
                     "500": {
@@ -553,8 +567,20 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "has_attempted_by_user": {
+                    "description": "True if the specified user has at least one attempt for this test. Omit if no user_id provided.",
+                    "type": "boolean"
+                },
                 "id": {
                     "type": "integer"
+                },
+                "last_attempt_score": {
+                    "description": "Score of the user's most recent attempt, if any.",
+                    "type": "number"
+                },
+                "last_attempt_status": {
+                    "description": "Status of the user's most recent attempt, if any.",
+                    "type": "string"
                 },
                 "question_count": {
                     "type": "integer"

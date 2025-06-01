@@ -58,7 +58,9 @@ func main() {
 		// Services Layer
 		fx.Provide(
 			service.NewAdminTestService,
-			service.NewUserTestService,
+			func(testRepo repository.TestRepository, attemptRepo repository.TestAttemptRepository) service.UserTestService {
+				return service.NewUserTestService(testRepo, attemptRepo)
+			},
 			service.NewGeminiLLMService, // Renamed Gemini service
 			service.NewTestSubmissionService,
 		),

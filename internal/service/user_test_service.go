@@ -10,19 +10,20 @@ import (
 )
 
 type UserTestService interface {
-	GetAllTests() ([]dto.TestSummaryDTO, error)
+	GetAllTests(userID *uint) ([]dto.TestSummaryDTO, error)
 	GetTestDetails(testID uint) (*dto.TestResponseDTO, error)
 }
 
 type userTestService struct {
-	testRepo repository.TestRepository
+	testRepo        repository.TestRepository
+	testAttemptRepo repository.TestAttemptRepository
 }
 
-func NewUserTestService(testRepo repository.TestRepository) UserTestService {
-	return &userTestService{testRepo: testRepo}
+func NewUserTestService(testRepo repository.TestRepository, testAttemptRepo repository.TestAttemptRepository) UserTestService {
+	return &userTestService{testRepo: testRepo, testAttemptRepo: testAttemptRepo}
 }
 
-func (s *userTestService) GetAllTests() ([]dto.TestSummaryDTO, error) {
+func (s *userTestService) GetAllTests(requestingUserID *uint) ([]dto.TestSummaryDTO, error) {
 	testsWithCount, err := s.testRepo.FindAllWithQuestionCount()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get all tests with question count from repository")
@@ -31,13 +32,44 @@ func (s *userTestService) GetAllTests() ([]dto.TestSummaryDTO, error) {
 
 	var dtos []dto.TestSummaryDTO
 	for _, twc := range testsWithCount {
-		dtos = append(dtos, dto.TestSummaryDTO{
+		summary := dto.TestSummaryDTO{
 			ID:            twc.Test.ID,
 			Title:         twc.Test.Title,
 			Description:   twc.Test.Description,
 			QuestionCount: twc.QuestionCount,
 			CreatedAt:     twc.Test.CreatedAt,
-		})
+		}
+
+		if requestingUserID != nil {
+			// Kiểm tra xem user này đã làm bài test này chưa
+			// exists, errExists := s.testAttemptRepo.ExistsByUserAndTest(*requestingUserID, twc.Test.ID)
+			// if errExists != nil {
+			// 	log.Error().Err(errExists).Uint("userID", *requestingUserID).Uint("testID", twc.Test.ID).Msg("Error checking test attempt existence")
+			// 	// Quyết định: bỏ qua lỗi này hay trả về lỗi tổng? Hiện tại bỏ qua, has_attempted sẽ là nil/false
+			// 	// summary.HasAttemptedByUser = nil // Hoặc false tùy theo logic bạn muốn khi có lỗi
+			// } else {
+			// 	summary.HasAttemptedByUser = &exists
+			// }
+
+			// Lấy thông tin attempt gần nhất
+			latestAttempt, errLatest := s.testAttemptRepo.FindLatestByTestAndUser(twc.Test.ID, *requestingUserID)
+			if errLatest != nil {
+				log.Error().Err(errLatest).Uint("userID", *requestingUserID).Uint("testID", twc.Test.ID).Msg("Error fetching latest test attempt")
+				// Không set các trường này nếu có lỗi
+			} else if latestAttempt != nil {
+				hasAttempted := true
+				summary.HasAttemptedByUser = &hasAttempted
+				summary.LastAttemptStatus = &latestAttempt.Status
+				if latestAttempt.TotalScore != nil {
+					summary.LastAttemptScore = latestAttempt.TotalScore
+				}
+			} else { // No attempt found for this user and test
+				hasAttempted := false
+				summary.HasAttemptedByUser = &hasAttempted
+				// LastAttemptStatus and LastAttemptScore sẽ là nil (mặc định cho con trỏ)
+			}
+		}
+		dtos = append(dtos, summary)
 	}
 	return dtos, nil
 }

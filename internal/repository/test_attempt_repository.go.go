@@ -11,6 +11,7 @@ type TestAttemptRepository interface {
 	FindByID(id uint) (*model.TestAttempt, error)
 	FindByIDWithDetails(id uint) (*model.TestAttempt, error)
 	FindAllByTestAndUser(testID uint, userID *uint) ([]model.TestAttempt, error)
+	FindLatestByTestAndUser(testID uint, userID uint) (*model.TestAttempt, error)
 }
 
 type testAttemptRepository struct {
@@ -59,4 +60,29 @@ func (r *testAttemptRepository) FindAllByTestAndUser(testID uint, userID *uint) 
 	// query = query.Preload("Test")
 	err := query.Order("submitted_at DESC").Find(&attempts).Error
 	return attempts, err
+}
+
+func (r *testAttemptRepository) ExistsByUserAndTest(userID uint, testID uint) (bool, error) {
+	var count int64
+	err := r.db.Model(&model.TestAttempt{}).
+		Where("user_id = ? AND test_id = ?", userID, testID).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (r *testAttemptRepository) FindLatestByTestAndUser(testID uint, userID uint) (*model.TestAttempt, error) {
+	var attempt model.TestAttempt
+	err := r.db.Where("test_id = ? AND user_id = ?", testID, userID).
+		Order("submitted_at DESC").
+		First(&attempt).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil // No attempt found is not an error for this specific query
+		}
+		return nil, err // Actual database error
+	}
+	return &attempt, nil
 }

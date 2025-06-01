@@ -27,14 +27,31 @@ func NewUserTestController(uts service.UserTestService, tss service.TestSubmissi
 
 // GetAllTests godoc
 // @Summary (User) List all available tests
-// @Description Get a list of tests with summary information.
+// @Description Get a list of tests. If 'user_id' query param is provided, includes attempt status for that user.
 // @Tags User - Tests & Attempts
 // @Produce json
+// @Param user_id query int false "Optional User ID to check attempt status against"
 // @Success 200 {array} dto.TestSummaryDTO
+// @Failure 400 {object} dto.ErrorResponse "Invalid User ID format"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /tests [get]
 func (c *UserTestController) GetAllTests(ctx *gin.Context) {
-	tests, err := c.userTestService.GetAllTests()
+	var userID *uint
+	userIDQueryStr := ctx.Query("user_id")
+	if userIDQueryStr != "" {
+		val, err := strconv.ParseUint(userIDQueryStr, 10, 32)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{Message: "Invalid User ID format in query"})
+			return
+		}
+		uID := uint(val)
+		userID = &uID
+		log.Info().Uint("userID", *userID).Msg("User GetAllTests: Fetching tests with attempt status for user.")
+	} else {
+		log.Info().Msg("User GetAllTests: Fetching all tests without user-specific attempt status.")
+	}
+
+	tests, err := c.userTestService.GetAllTests(userID) // Truyền userID vào service
 	if err != nil {
 		log.Error().Err(err).Msg("User GetAllTests: Service error")
 		ctx.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: "Failed to retrieve tests", Details: []string{err.Error()}})
