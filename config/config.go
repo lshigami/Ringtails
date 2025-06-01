@@ -6,8 +6,9 @@ import (
 )
 
 type Config struct {
-	Server   Server
-	Database Database
+	Server       Server
+	Database     Database
+	GeminiApiKey string
 }
 
 type Server struct {
@@ -40,6 +41,8 @@ func NewConfig() (*Config, error) {
 	config.Database.User = viper.GetString("DATABASE_USER")
 	config.Database.Password = viper.GetString("DATABASE_PASSWORD")
 	config.Database.Name = viper.GetString("DATABASE_NAME")
+
+	config.GeminiApiKey = viper.GetString("GEMINI_API_KEY")
 
 	log.Info().Interface("config", config).Msg("Config loaded")
 	return &config, nil

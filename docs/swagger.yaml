@@ -1,0 +1,594 @@
+basePath: /api/v1
+definitions:
+  dto.AttemptResponse:
+    properties:
+      ai_feedback:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      question:
+        $ref: '#/definitions/dto.QuestionResponse'
+      question_id:
+        type: integer
+      submitted_at:
+        type: string
+      user_answer:
+        type: string
+    type: object
+  dto.CreateQuestionRequest:
+    properties:
+      given_word1:
+        type: string
+      given_word2:
+        type: string
+      image_url:
+        description: For type="sentence_picture"
+        type: string
+      order_in_test:
+        description: 1-8, relevant if TestID is provided or part of CreateTestWithQuestionsRequest
+        type: integer
+      prompt:
+        description: Main text for email/essay, or general instruction for picture
+        type: string
+      test_id:
+        description: 'Optional: associate with an existing test'
+        type: integer
+      title:
+        type: string
+      type:
+        enum:
+        - sentence_picture
+        - email_response
+        - opinion_essay
+        type: string
+    required:
+    - prompt
+    - title
+    - type
+    type: object
+  dto.CreateTestRequest:
+    properties:
+      description:
+        type: string
+      questions:
+        description: 'Optional: create questions along with the test'
+        items:
+          $ref: '#/definitions/dto.QuestionForTestRequest'
+        type: array
+      title:
+        type: string
+    required:
+    - title
+    type: object
+  dto.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  dto.QuestionForTestRequest:
+    properties:
+      given_word1:
+        description: Required if type="sentence_picture"
+        type: string
+      given_word2:
+        description: Required if type="sentence_picture"
+        type: string
+      image_url:
+        description: Required if type="sentence_picture"
+        type: string
+      order_in_test:
+        maximum: 8
+        minimum: 1
+        type: integer
+      prompt:
+        type: string
+      title:
+        type: string
+      type:
+        enum:
+        - sentence_picture
+        - email_response
+        - opinion_essay
+        type: string
+    required:
+    - order_in_test
+    - prompt
+    - title
+    - type
+    type: object
+  dto.QuestionResponse:
+    properties:
+      created_at:
+        type: string
+      given_word1:
+        type: string
+      given_word2:
+        type: string
+      id:
+        type: integer
+      image_url:
+        type: string
+      order_in_test:
+        type: integer
+      prompt:
+        type: string
+      test_id:
+        type: integer
+      title:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  dto.SubmitAttemptRequest:
+    properties:
+      question_id:
+        type: integer
+      user_answer:
+        type: string
+    required:
+    - question_id
+    - user_answer
+    type: object
+  dto.TestResponse:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      questions:
+        description: Eager loaded questions
+        items:
+          $ref: '#/definitions/dto.QuestionResponse'
+        type: array
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: This is a server for a TOEIC Writing practice application with AI feedback.
+    Supports structured tests and various question types including picture description.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: TOEIC Writing Practice API
+  version: "1.1"
+paths:
+  /attempts:
+    get:
+      description: Retrieve all submitted attempts with their questions and AI feedback
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.AttemptResponse'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get all attempts (history)
+      tags:
+      - attempts
+    post:
+      consumes:
+      - application/json
+      description: User submits their answer to a question, it gets evaluated by AI
+      parameters:
+      - description: Attempt data
+        in: body
+        name: attempt
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SubmitAttemptRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.AttemptResponse'
+        "400":
+          description: Invalid request body or question not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error or AI service error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Submit a new attempt for a question
+      tags:
+      - attempts
+  /attempts/{id}:
+    get:
+      description: Retrieve details of a single submitted attempt
+      parameters:
+      - description: Attempt ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.AttemptResponse'
+        "400":
+          description: Invalid ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Attempt not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get a specific attempt by ID
+      tags:
+      - attempts
+  /questions:
+    get:
+      description: Retrieve TOEIC writing questions. Use 'test_id' query param to
+        filter by test.
+      parameters:
+      - description: Filter by Test ID
+        in: query
+        name: test_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.QuestionResponse'
+            type: array
+        "400":
+          description: Invalid test_id format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get all questions, optionally filtered by test ID
+      tags:
+      - questions
+    post:
+      consumes:
+      - application/json
+      description: Add a new TOEIC writing question. If TestID is provided, it associates
+        with that test.
+      parameters:
+      - description: Question data
+        in: body
+        name: question
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateQuestionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.QuestionResponse'
+        "400":
+          description: Invalid request body or invalid TestID
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Create a new question (standalone or for a test)
+      tags:
+      - questions
+  /questions/{id}:
+    delete:
+      description: Remove a question from the system
+      parameters:
+      - description: Question ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Question not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Delete a question
+      tags:
+      - questions
+    get:
+      description: Retrieve a specific TOEIC writing question
+      parameters:
+      - description: Question ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.QuestionResponse'
+        "400":
+          description: Invalid ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Question not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get a question by ID
+      tags:
+      - questions
+    put:
+      consumes:
+      - application/json
+      description: Modify an existing TOEIC writing question
+      parameters:
+      - description: Question ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated question data
+        in: body
+        name: question
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateQuestionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.QuestionResponse'
+        "400":
+          description: Invalid request body or ID
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Question not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Update an existing question
+      tags:
+      - questions
+  /tests:
+    get:
+      description: Retrieve all TOEIC writing tests. Use 'with_questions=true' query
+        param to include questions.
+      parameters:
+      - description: Include questions in the response
+        in: query
+        name: with_questions
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.TestResponse'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get all tests
+      tags:
+      - tests
+    post:
+      consumes:
+      - application/json
+      description: Add a new TOEIC writing test, optionally with its questions
+      parameters:
+      - description: Test data including optional questions
+        in: body
+        name: test
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateTestRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.TestResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Create a new test
+      tags:
+      - tests
+  /tests/{id}:
+    delete:
+      description: Delete a test and its associated questions
+      parameters:
+      - description: Test ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Test not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Delete a test
+      tags:
+      - tests
+    get:
+      description: Retrieve a specific TOEIC writing test and all its associated questions
+      parameters:
+      - description: Test ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TestResponse'
+        "400":
+          description: Invalid ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Test not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get a test by ID with its questions
+      tags:
+      - tests
+    put:
+      consumes:
+      - application/json
+      description: Update the title or description of an existing test
+      parameters:
+      - description: Test ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Test metadata to update (only Title and Description are used)
+        in: body
+        name: test_metadata
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateTestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TestResponse'
+        "400":
+          description: Invalid request body or ID
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Test not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Update a test's metadata
+      tags:
+      - tests
+  /tests/{id}/questions:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new question and associates it with the specified test
+      parameters:
+      - description: Test ID to add question to
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Question data (TestID in body will be ignored, OrderInTest should
+          be unique for the test)
+        in: body
+        name: question
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateQuestionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.QuestionResponse'
+        "400":
+          description: Invalid request body or Test ID
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Test not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Add a question to an existing test
+      tags:
+      - tests
+schemes:
+- http
+- https
+swagger: "2.0"
