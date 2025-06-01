@@ -10,6 +10,18 @@ definitions:
     - question_id
     - user_answer
     type: object
+  dto.AttemptInfoDTO:
+    properties:
+      ai_feedback:
+        description: Có thể là omitempty nếu không muốn load ngay
+        type: string
+      attempt_id:
+        type: integer
+      submitted_at:
+        type: string
+      user_answer:
+        type: string
+    type: object
   dto.AttemptResponse:
     properties:
       ai_feedback:
@@ -77,6 +89,31 @@ definitions:
   dto.ErrorResponse:
     properties:
       error:
+        type: string
+    type: object
+  dto.QuestionAttemptHistoryDTO:
+    properties:
+      attempts:
+        description: Chỉ chứa thông tin cần thiết của attempt
+        items:
+          $ref: '#/definitions/dto.AttemptInfoDTO'
+        type: array
+      given_word1:
+        type: string
+      given_word2:
+        type: string
+      image_url:
+        type: string
+      order_in_test:
+        type: integer
+      prompt:
+        description: For email/essay
+        type: string
+      question_id:
+        type: integer
+      question_title:
+        type: string
+      question_type:
         type: string
     type: object
   dto.QuestionForTestRequest:
@@ -174,6 +211,34 @@ definitions:
         type: integer
       test_id:
         type: integer
+      user_id:
+        type: integer
+    type: object
+  dto.TestAttemptHistoryResponseDTO:
+    properties:
+      questions_history:
+        items:
+          $ref: '#/definitions/dto.QuestionAttemptHistoryDTO'
+        type: array
+      test_id:
+        type: integer
+      test_title:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  dto.TestAttemptsResponse:
+    properties:
+      attempts:
+        items:
+          $ref: '#/definitions/dto.AttemptResponse'
+        type: array
+      submitted_at:
+        type: string
+      test_id:
+        type: integer
+      test_title:
+        type: string
       user_id:
         type: integer
     type: object
@@ -304,6 +369,35 @@ paths:
       summary: Get a specific attempt by ID
       tags:
       - attempts
+  /done/{user_id}:
+    get:
+      description: Retrieves all tests that a user has attempted
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.TestResponse'
+            type: array
+        "400":
+          description: Invalid User ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get all completed tests for a specific user
+      tags:
+      - tests
   /questions:
     get:
       description: Retrieve TOEIC writing questions. Use 'test_id' query param to
@@ -458,6 +552,42 @@ paths:
       summary: Update an existing question
       tags:
       - questions
+  /result/{test_id}/{user_id}:
+    get:
+      description: Retrieves all attempts made by a user for a specific test
+      parameters:
+      - description: Test ID
+        in: path
+        name: test_id
+        required: true
+        type: integer
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TestAttemptsResponse'
+        "400":
+          description: Invalid Test ID or User ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Test not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get all attempts for a specific test by a user
+      tags:
+      - tests
   /tests:
     get:
       description: Retrieve all TOEIC writing tests. Use 'with_questions=true' query
@@ -605,6 +735,43 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       summary: Update a test's metadata
+      tags:
+      - tests
+  /tests/{id}/history:
+    get:
+      description: Retrieves all questions of a test and the user's attempts for each
+        question.
+      parameters:
+      - description: Test ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: User ID to filter history for. If not provided, might show for
+          a default/anonymous user or be restricted.
+        in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TestAttemptHistoryResponseDTO'
+        "400":
+          description: Invalid Test ID or User ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Test not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get user's attempt history for a specific test
       tags:
       - tests
   /tests/{id}/questions:

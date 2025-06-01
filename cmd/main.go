@@ -53,8 +53,8 @@ func main() {
 			repository.NewTestRepository,
 
 			// Services
-			func(testRepo repository.TestRepository, questionRepo repository.QuestionRepository, db *gorm.DB) service.TestService {
-				return service.NewTestService(testRepo, questionRepo, db)
+			func(testRepo repository.TestRepository, questionRepo repository.QuestionRepository, attemptRepo repository.AttemptRepository, db *gorm.DB) service.TestService {
+				return service.NewTestService(testRepo, questionRepo, attemptRepo, db)
 			},
 			func(questionRepo repository.QuestionRepository, testRepo repository.TestRepository) service.QuestionService {
 				return service.NewQuestionService(questionRepo, testRepo)

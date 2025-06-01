@@ -41,6 +41,7 @@ func (ctrl *Controller) RegisterRoutes(router *gin.Engine) {
 		tests.PUT("/:id", ctrl.UpdateTestHandler) // Update test metadata
 		tests.DELETE("/:id", ctrl.DeleteTestHandler)
 		tests.POST("/:id/questions", ctrl.AddQuestionToTestHandler) // Add a question to an existing test
+		tests.GET("/:id/history", ctrl.GetTestAttemptHistoryHandler)
 
 		// Question routes (can be standalone or part of tests)
 		questions := apiV1.Group("/questions")
@@ -56,6 +57,13 @@ func (ctrl *Controller) RegisterRoutes(router *gin.Engine) {
 		attempts.GET("", ctrl.GetAllAttemptsHandler)
 		attempts.GET("/:id", ctrl.GetAttemptHandler)
 		tests.POST("/:id/submit", ctrl.SubmitFullTestHandler)
+		
+		// New routes for test results
+		done := apiV1.Group("/done")
+		done.GET("/:user_id", ctrl.GetCompletedTestsByUserHandler) // Get all completed tests for a user
+		
+		result := apiV1.Group("/result")
+		result.GET("/:test_id/:user_id", ctrl.GetTestAttemptsByUserHandler) // Get all attempts for a specific test by user
 	}
 }
 
@@ -623,4 +631,130 @@ func (ctrl *Controller) SubmitFullTestHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, submissionResp)
+}
+
+// GetTestAttemptHistoryHandler godoc
+// @Summary Get user's attempt history for a specific test
+// @Description Retrieves all questions of a test and the user's attempts for each question.
+// @Tags tests
+// @Produce json
+// @Param id path int true "Test ID"
+// @Param user_id query int false "User ID to filter history for. If not provided, might show for a default/anonymous user or be restricted."
+// @Success 200 {object} dto.TestAttemptHistoryResponseDTO
+// @Failure 400 {object} dto.ErrorResponse "Invalid Test ID or User ID format"
+// @Failure 404 {object} dto.ErrorResponse "Test not found"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /tests/{id}/history [get]
+func (ctrl *Controller) GetTestAttemptHistoryHandler(c *gin.Context) {
+	testIdStr := c.Param("id")
+	testID, err := strconv.ParseUint(testIdStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid Test ID format"})
+		return
+	}
+
+	var userID *uint
+	userIDStr := c.Query("user_id")
+	if userIDStr != "" {
+		val, err := strconv.ParseUint(userIDStr, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid user_id format"})
+			return
+		}
+		parsedUserID := uint(val)
+		userID = &parsedUserID
+	} else {
+		// Xử lý trường hợp không có user_id:
+		// 1. Trả lỗi nếu user_id là bắt buộc cho endpoint này.
+		// 2. Hoặc gán một user_id mặc định (ví dụ: user khách).
+		// Hiện tại, service sẽ xử lý userID là nil (có thể là lấy của user mặc định nếu service có logic đó, hoặc lấy tất cả attempts nếu không có user nào).
+		// Tuy nhiên, cho "lịch sử CỦA TÔI", user_id thường là bắt buộc hoặc lấy từ context auth.
+		// Vì đang hardcore, chúng ta sẽ cho phép nil và để service quyết định.
+		log.Info().Uint64("testID", testID).Msg("GetTestAttemptHistory request without specific UserID.")
+	}
+
+	historyResp, err := ctrl.testSvc.GetTestAttemptHistory(uint(testID), userID)
+	if err != nil {
+		// Kiểm tra lỗi cụ thể hơn nếu service trả về
+		if _, ok := err.(interface{ NotFound() }); ok { // Giả sử có custom error
+			c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to retrieve test attempt history: " + err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, historyResp)
+}
+
+// GetCompletedTestsByUserHandler godoc
+// @Summary Get all completed tests for a specific user
+// @Description Retrieves all tests that a user has attempted
+// @Tags tests
+// @Produce json
+// @Param user_id path int true "User ID"
+// @Success 200 {array} dto.TestResponse
+// @Failure 400 {object} dto.ErrorResponse "Invalid User ID format"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /done/{user_id} [get]
+func (ctrl *Controller) GetCompletedTestsByUserHandler(c *gin.Context) {
+	userIDStr := c.Param("user_id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid User ID format"})
+		return
+	}
+
+	parsedUserID := uint(userID)
+	tests, err := ctrl.testSvc.GetCompletedTestsByUser(&parsedUserID)
+	if err != nil {
+		log.Error().Err(err).Uint("userID", parsedUserID).Msg("Failed to retrieve completed tests for user")
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to retrieve completed tests: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, tests)
+}
+
+// GetTestAttemptsByUserHandler godoc
+// @Summary Get all attempts for a specific test by a user
+// @Description Retrieves all attempts made by a user for a specific test
+// @Tags tests
+// @Produce json
+// @Param test_id path int true "Test ID"
+// @Param user_id path int true "User ID"
+// @Success 200 {object} dto.TestAttemptsResponse
+// @Failure 400 {object} dto.ErrorResponse "Invalid Test ID or User ID format"
+// @Failure 404 {object} dto.ErrorResponse "Test not found"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /result/{test_id}/{user_id} [get]
+func (ctrl *Controller) GetTestAttemptsByUserHandler(c *gin.Context) {
+	testIDStr := c.Param("test_id")
+	testID, err := strconv.ParseUint(testIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid Test ID format"})
+		return
+	}
+
+	userIDStr := c.Param("user_id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid User ID format"})
+		return
+	}
+
+	parsedUserID := uint(userID)
+	attempts, err := ctrl.testSvc.GetTestAttemptsByUser(uint(testID), &parsedUserID)
+	if err != nil {
+		// Check for specific error types
+		if _, ok := err.(interface{ NotFound() }); ok {
+			c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: err.Error()})
+		} else {
+			log.Error().Err(err).Uint("testID", uint(testID)).Uint("userID", parsedUserID).Msg("Failed to retrieve test attempts")
+			c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to retrieve test attempts: " + err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, attempts)
 }

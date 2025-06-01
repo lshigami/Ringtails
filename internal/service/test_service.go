@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/jinzhu/copier"
 	"github.com/lshigami/Ringtails/internal/dto"
@@ -18,16 +19,21 @@ type TestService interface {
 	UpdateTest(id uint, req dto.CreateTestRequest) (*dto.TestResponse, error) // For title/desc, not questions here
 	DeleteTest(id uint) error
 	AddQuestionToTest(testID uint, qReq dto.CreateQuestionRequest) (*dto.QuestionResponse, error)
+	GetTestAttemptHistory(testID uint, userID *uint) (*dto.TestAttemptHistoryResponseDTO, error)
+	GetCompletedTestsByUser(userID *uint) ([]dto.TestResponse, error)
+	GetTestAttemptsByUser(testID uint, userID *uint) (*dto.TestAttemptsResponse, error)
 }
 
 type testService struct {
 	testRepo     repository.TestRepository
 	questionRepo repository.QuestionRepository
-	db           *gorm.DB // For transactions
+	attemptRepo  repository.AttemptRepository
+
+	db *gorm.DB // For transactions
 }
 
-func NewTestService(testRepo repository.TestRepository, questionRepo repository.QuestionRepository, db *gorm.DB) TestService {
-	return &testService{testRepo: testRepo, questionRepo: questionRepo, db: db}
+func NewTestService(testRepo repository.TestRepository, questionRepo repository.QuestionRepository, attemptRepo repository.AttemptRepository, db *gorm.DB) TestService {
+	return &testService{testRepo: testRepo, questionRepo: questionRepo, attemptRepo: attemptRepo, db: db}
 }
 
 func (s *testService) CreateTest(req dto.CreateTestRequest) (*dto.TestResponse, error) {
@@ -172,4 +178,178 @@ func (s *testService) AddQuestionToTest(testID uint, qReq dto.CreateQuestionRequ
 	var resp dto.QuestionResponse
 	copier.Copy(&resp, &question)
 	return &resp, nil
+}
+
+func (s *testService) GetTestAttemptHistory(testID uint, userID *uint) (*dto.TestAttemptHistoryResponseDTO, error) {
+	// 1. Lấy thông tin Test và các Questions của nó
+	test, err := s.testRepo.FindByIDWithQuestions(testID)
+	if err != nil {
+		log.Error().Err(err).Uint("testID", testID).Msg("Failed to find test for history")
+		return nil, fmt.Errorf("test with ID %d not found: %w", testID, err)
+	}
+	if len(test.Questions) == 0 {
+		// Trả về test không có câu hỏi nếu cần, hoặc lỗi
+		return &dto.TestAttemptHistoryResponseDTO{
+			TestID:           test.ID,
+			TestTitle:        test.Title,
+			UserID:           userID,
+			QuestionsHistory: []dto.QuestionAttemptHistoryDTO{},
+		}, nil
+	}
+
+	// 2. Lấy tất cả các attempts của user này cho các câu hỏi trong test này
+	// Tạo danh sách các question IDs từ test.Questions
+	var questionIDs []uint
+	for _, q := range test.Questions {
+		questionIDs = append(questionIDs, q.ID)
+	}
+
+	// Lấy tất cả attempts của user cho các question_id này
+	// Chúng ta có thể sửa đổi FindAllWithQuestions để nhận một slice các questionIDs
+	// Hoặc, chúng ta lấy tất cả attempts của user cho testID (dùng cách hiện tại)
+	// `s.attemptRepo.FindAllWithQuestions` đã hỗ trợ lọc theo testID và userID
+	userAttemptsForTest, err := s.attemptRepo.FindAllWithQuestions(userID, &testID)
+	if err != nil {
+		log.Error().Err(err).Uint("testID", testID).Interface("userID", userID).Msg("Failed to fetch attempts for test history")
+		return nil, fmt.Errorf("could not fetch attempts for test history: %w", err)
+	}
+
+	// Nhóm các attempts theo QuestionID để dễ dàng map
+	attemptsByQuestionID := make(map[uint][]model.Attempt)
+	for _, attempt := range userAttemptsForTest {
+		attemptsByQuestionID[attempt.QuestionID] = append(attemptsByQuestionID[attempt.QuestionID], attempt)
+	}
+
+	// 3. Xây dựng response
+	var questionsHistory []dto.QuestionAttemptHistoryDTO
+	for _, question := range test.Questions {
+		qHistory := dto.QuestionAttemptHistoryDTO{
+			QuestionID:    question.ID,
+			QuestionTitle: question.Title,
+			QuestionType:  question.Type,
+			OrderInTest:   question.OrderInTest,
+			Prompt:        question.Prompt,
+			ImageURL:      question.ImageURL,
+			GivenWord1:    question.GivenWord1,
+			GivenWord2:    question.GivenWord2,
+			Attempts:      []dto.AttemptInfoDTO{}, // Khởi tạo rỗng
+		}
+
+		if userAttempts, found := attemptsByQuestionID[question.ID]; found {
+			for _, attempt := range userAttempts {
+				qHistory.Attempts = append(qHistory.Attempts, dto.AttemptInfoDTO{
+					AttemptID:   attempt.ID,
+					UserAnswer:  attempt.UserAnswer,
+					AIFeedback:  attempt.AIFeedback,
+					SubmittedAt: attempt.SubmittedAt,
+				})
+			}
+		}
+		questionsHistory = append(questionsHistory, qHistory)
+	}
+
+	return &dto.TestAttemptHistoryResponseDTO{
+		TestID:           test.ID,
+		TestTitle:        test.Title,
+		UserID:           userID,
+		QuestionsHistory: questionsHistory,
+	}, nil
+}
+
+// GetCompletedTestsByUser retrieves all tests that a user has attempted
+func (s *testService) GetCompletedTestsByUser(userID *uint) ([]dto.TestResponse, error) {
+	if userID == nil {
+		return nil, fmt.Errorf("user ID is required")
+	}
+
+	// Get all attempts by this user
+	attempts, err := s.attemptRepo.FindAllWithQuestions(userID, nil)
+	if err != nil {
+		log.Error().Err(err).Interface("userID", userID).Msg("Failed to fetch attempts for user")
+		return nil, fmt.Errorf("could not fetch attempts for user: %w", err)
+	}
+
+	// Extract unique test IDs from the attempts
+	testIDMap := make(map[uint]bool)
+	for _, attempt := range attempts {
+		if attempt.Question.TestID != nil {
+			testIDMap[*attempt.Question.TestID] = true
+		}
+	}
+
+	if len(testIDMap) == 0 {
+		// No tests found for this user
+		return []dto.TestResponse{}, nil
+	}
+
+	// Get all tests that the user has attempted
+	var testResponses []dto.TestResponse
+	for testID := range testIDMap {
+		test, err := s.testRepo.FindByID(testID)
+		if err != nil {
+			log.Warn().Err(err).Uint("testID", testID).Msg("Failed to find test for user history")
+			continue // Skip this test if not found
+		}
+
+		var testResp dto.TestResponse
+		copier.Copy(&testResp, test)
+		testResponses = append(testResponses, testResp)
+	}
+
+	return testResponses, nil
+}
+
+// GetTestAttemptsByUser retrieves all attempts for a specific test by a user
+func (s *testService) GetTestAttemptsByUser(testID uint, userID *uint) (*dto.TestAttemptsResponse, error) {
+	if userID == nil {
+		return nil, fmt.Errorf("user ID is required")
+	}
+
+	// Get the test information
+	test, err := s.testRepo.FindByID(testID)
+	if err != nil {
+		log.Error().Err(err).Uint("testID", testID).Msg("Failed to find test")
+		return nil, fmt.Errorf("test with ID %d not found: %w", testID, err)
+	}
+
+	// Get all attempts for this test by this user
+	attempts, err := s.attemptRepo.FindAllWithQuestions(userID, &testID)
+	if err != nil {
+		log.Error().Err(err).Uint("testID", testID).Interface("userID", userID).Msg("Failed to fetch attempts for test")
+		return nil, fmt.Errorf("could not fetch attempts for test: %w", err)
+	}
+
+	if len(attempts) == 0 {
+		// No attempts found for this test by this user
+		return &dto.TestAttemptsResponse{
+			TestID:    test.ID,
+			TestTitle: test.Title,
+			UserID:    userID,
+			Attempts:  []dto.AttemptResponse{},
+		}, nil
+	}
+
+	// Convert attempts to DTOs
+	var attemptResponses []dto.AttemptResponse
+	var latestSubmitTime *time.Time
+
+	for _, attempt := range attempts {
+		var attemptResp dto.AttemptResponse
+		copier.Copy(&attemptResp, &attempt)
+
+		// Keep track of the latest submission time
+		if latestSubmitTime == nil || attempt.SubmittedAt.After(*latestSubmitTime) {
+			latestSubmitTime = &attempt.SubmittedAt
+		}
+
+		attemptResponses = append(attemptResponses, attemptResp)
+	}
+
+	return &dto.TestAttemptsResponse{
+		TestID:      test.ID,
+		TestTitle:   test.Title,
+		UserID:      userID,
+		Attempts:    attemptResponses,
+		SubmittedAt: latestSubmitTime,
+	}, nil
 }

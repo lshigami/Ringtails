@@ -164,6 +164,50 @@ const docTemplate = `{
                 }
             }
         },
+        "/done/{user_id}": {
+            "get": {
+                "description": "Retrieves all tests that a user has attempted",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tests"
+                ],
+                "summary": "Get all completed tests for a specific user",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.TestResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid User ID format",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/questions": {
             "get": {
                 "description": "Retrieve TOEIC writing questions. Use 'test_id' query param to filter by test.",
@@ -381,6 +425,60 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Question not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/result/{test_id}/{user_id}": {
+            "get": {
+                "description": "Retrieves all attempts made by a user for a specific test",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tests"
+                ],
+                "summary": "Get all attempts for a specific test by a user",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Test ID",
+                        "name": "test_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TestAttemptsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid Test ID or User ID format",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Test not found",
                         "schema": {
                             "$ref": "#/definitions/dto.ErrorResponse"
                         }
@@ -618,6 +716,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/tests/{id}/history": {
+            "get": {
+                "description": "Retrieves all questions of a test and the user's attempts for each question.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tests"
+                ],
+                "summary": "Get user's attempt history for a specific test",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Test ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "User ID to filter history for. If not provided, might show for a default/anonymous user or be restricted.",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TestAttemptHistoryResponseDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid Test ID or User ID format",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Test not found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/tests/{id}/questions": {
             "post": {
                 "description": "Creates a new question and associates it with the specified test",
@@ -753,6 +904,24 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.AttemptInfoDTO": {
+            "type": "object",
+            "properties": {
+                "ai_feedback": {
+                    "description": "Có thể là omitempty nếu không muốn load ngay",
+                    "type": "string"
+                },
+                "attempt_id": {
+                    "type": "integer"
+                },
+                "submitted_at": {
+                    "type": "string"
+                },
+                "user_answer": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.AttemptResponse": {
             "type": "object",
             "properties": {
@@ -850,6 +1019,43 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.QuestionAttemptHistoryDTO": {
+            "type": "object",
+            "properties": {
+                "attempts": {
+                    "description": "Chỉ chứa thông tin cần thiết của attempt",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.AttemptInfoDTO"
+                    }
+                },
+                "given_word1": {
+                    "type": "string"
+                },
+                "given_word2": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "order_in_test": {
+                    "type": "integer"
+                },
+                "prompt": {
+                    "description": "For email/essay",
+                    "type": "string"
+                },
+                "question_id": {
+                    "type": "integer"
+                },
+                "question_title": {
+                    "type": "string"
+                },
+                "question_type": {
                     "type": "string"
                 }
             }
@@ -991,6 +1197,49 @@ const docTemplate = `{
                 },
                 "test_id": {
                     "type": "integer"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.TestAttemptHistoryResponseDTO": {
+            "type": "object",
+            "properties": {
+                "questions_history": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.QuestionAttemptHistoryDTO"
+                    }
+                },
+                "test_id": {
+                    "type": "integer"
+                },
+                "test_title": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.TestAttemptsResponse": {
+            "type": "object",
+            "properties": {
+                "attempts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.AttemptResponse"
+                    }
+                },
+                "submitted_at": {
+                    "type": "string"
+                },
+                "test_id": {
+                    "type": "integer"
+                },
+                "test_title": {
+                    "type": "string"
                 },
                 "user_id": {
                     "type": "integer"
