@@ -1,132 +1,41 @@
 basePath: /api/v1
 definitions:
-  dto.AnswerForTestSubmission:
-    properties:
-      question_id:
-        type: integer
-      user_answer:
-        type: string
-    required:
-    - question_id
-    - user_answer
-    type: object
-  dto.AttemptInfoDTO:
-    properties:
-      ai_feedback:
-        description: Có thể là omitempty nếu không muốn load ngay
-        type: string
-      attempt_id:
-        type: integer
-      submitted_at:
-        type: string
-      user_answer:
-        type: string
-    type: object
-  dto.AttemptResponse:
+  github_com_lshigami_Ringtails_internal_dto.AnswerResponseDTO:
     properties:
       ai_feedback:
         type: string
-      created_at:
-        type: string
+      ai_score:
+        type: number
       id:
         type: integer
       question:
-        $ref: '#/definitions/dto.QuestionResponse'
+        allOf:
+        - $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.QuestionResponseDTO'
+        description: Contains full question details
       question_id:
         type: integer
-      submitted_at:
-        type: string
       user_answer:
         type: string
-      user_id:
-        type: integer
     type: object
-  dto.CreateQuestionRequest:
+  github_com_lshigami_Ringtails_internal_dto.ErrorResponse:
     properties:
-      given_word1:
-        type: string
-      given_word2:
-        type: string
-      image_url:
-        description: For type="sentence_picture"
-        type: string
-      order_in_test:
-        description: 1-8, relevant if TestID is provided or part of CreateTestWithQuestionsRequest
-        type: integer
-      prompt:
-        description: Main text for email/essay, or general instruction for picture
-        type: string
-      test_id:
-        description: 'Optional: associate with an existing test'
-        type: integer
-      title:
-        type: string
-      type:
-        enum:
-        - sentence_picture
-        - email_response
-        - opinion_essay
-        type: string
-    required:
-    - prompt
-    - title
-    - type
-    type: object
-  dto.CreateTestRequest:
-    properties:
-      description:
-        type: string
-      questions:
-        description: 'Optional: create questions along with the test'
+      details:
         items:
-          $ref: '#/definitions/dto.QuestionForTestRequest'
+          type: string
         type: array
-      title:
-        type: string
-    required:
-    - title
-    type: object
-  dto.ErrorResponse:
-    properties:
-      error:
+      message:
         type: string
     type: object
-  dto.QuestionAttemptHistoryDTO:
+  github_com_lshigami_Ringtails_internal_dto.QuestionCreateDTO:
     properties:
-      attempts:
-        description: Chỉ chứa thông tin cần thiết của attempt
-        items:
-          $ref: '#/definitions/dto.AttemptInfoDTO'
-        type: array
       given_word1:
         type: string
       given_word2:
         type: string
       image_url:
         type: string
-      order_in_test:
-        type: integer
-      prompt:
-        description: For email/essay
-        type: string
-      question_id:
-        type: integer
-      question_title:
-        type: string
-      question_type:
-        type: string
-    type: object
-  dto.QuestionForTestRequest:
-    properties:
-      given_word1:
-        description: Required if type="sentence_picture"
-        type: string
-      given_word2:
-        description: Required if type="sentence_picture"
-        type: string
-      image_url:
-        description: Required if type="sentence_picture"
-        type: string
+      max_score:
+        type: number
       order_in_test:
         maximum: 8
         minimum: 1
@@ -142,15 +51,14 @@ definitions:
         - opinion_essay
         type: string
     required:
+    - max_score
     - order_in_test
     - prompt
     - title
     - type
     type: object
-  dto.QuestionResponse:
+  github_com_lshigami_Ringtails_internal_dto.QuestionResponseDTO:
     properties:
-      created_at:
-        type: string
       given_word1:
         type: string
       given_word2:
@@ -159,6 +67,8 @@ definitions:
         type: integer
       image_url:
         type: string
+      max_score:
+        type: number
       order_in_test:
         type: integer
       prompt:
@@ -169,133 +79,73 @@ definitions:
         type: string
       type:
         type: string
-      updated_at:
-        type: string
     type: object
-  dto.SubmitAttemptRequest:
+  github_com_lshigami_Ringtails_internal_dto.TestAttemptDetailDTO:
     properties:
-      question_id:
+      answers:
+        description: List of answers with their details
+        items:
+          $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.AnswerResponseDTO'
+        type: array
+      id:
         type: integer
-      user_answer:
+      status:
         type: string
+      submitted_at:
+        type: string
+      test_id:
+        type: integer
+      test_title:
+        type: string
+      total_score:
+        type: number
       user_id:
         type: integer
-    required:
-    - question_id
-    - user_answer
     type: object
-  dto.SubmitFullTestRequest:
+  github_com_lshigami_Ringtails_internal_dto.TestAttemptSubmitDTO:
     properties:
       answers:
         items:
-          $ref: '#/definitions/dto.AnswerForTestSubmission'
+          $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.UserAnswerDTO'
         type: array
       user_id:
-        description: Optional User ID
+        description: Temporary, for non-auth user identification
         type: integer
     required:
     - answers
     type: object
-  dto.SubmitFullTestResponse:
+  github_com_lshigami_Ringtails_internal_dto.TestAttemptSummaryDTO:
     properties:
-      attempts:
-        items:
-          $ref: '#/definitions/dto.AttemptResponse'
-        type: array
-      errors:
-        description: To report any partial failures
-        items:
-          type: string
-        type: array
-      submitted_count:
+      id:
         type: integer
-      test_id:
-        type: integer
-      user_id:
-        type: integer
-    type: object
-  dto.TestAttemptDetailResponse:
-    properties:
-      attempt_id:
-        type: integer
-      questions_history:
-        items:
-          $ref: '#/definitions/dto.QuestionAttemptHistoryDTO'
-        type: array
-      score:
-        type: integer
+      status:
+        type: string
       submitted_at:
         type: string
       test_id:
         type: integer
-      test_title:
-        type: string
-      total_questions:
-        type: integer
+      total_score:
+        type: number
       user_id:
         type: integer
-      username:
-        type: string
     type: object
-  dto.TestAttemptHistoryResponseDTO:
+  github_com_lshigami_Ringtails_internal_dto.TestCreateDTO:
     properties:
-      questions_history:
+      description:
+        type: string
+      questions:
         items:
-          $ref: '#/definitions/dto.QuestionAttemptHistoryDTO'
+          $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.QuestionCreateDTO'
+        maxItems: 8
+        minItems: 8
         type: array
-      test_id:
-        type: integer
-      test_title:
+      title:
         type: string
-      user_id:
-        type: integer
+    required:
+    - questions
+    - title
     type: object
-  dto.TestAttemptsListItem:
-    properties:
-      attempt_id:
-        type: integer
-      completed_questions:
-        type: integer
-      score:
-        type: integer
-      submitted_at:
-        type: string
-      total_questions:
-        type: integer
-      user_id:
-        type: integer
-      username:
-        type: string
-    type: object
-  dto.TestAttemptsListResponse:
-    properties:
-      attempts:
-        items:
-          $ref: '#/definitions/dto.TestAttemptsListItem'
-        type: array
-      test_id:
-        type: integer
-      test_title:
-        type: string
-      total_count:
-        type: integer
-    type: object
-  dto.TestAttemptsResponse:
-    properties:
-      attempts:
-        items:
-          $ref: '#/definitions/dto.AttemptResponse'
-        type: array
-      submitted_at:
-        type: string
-      test_id:
-        type: integer
-      test_title:
-        type: string
-      user_id:
-        type: integer
-    type: object
-  dto.TestResponse:
+  github_com_lshigami_Ringtails_internal_dto.TestResponseDTO:
     properties:
       created_at:
         type: string
@@ -304,356 +154,87 @@ definitions:
       id:
         type: integer
       questions:
-        description: Eager loaded questions
         items:
-          $ref: '#/definitions/dto.QuestionResponse'
+          $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.QuestionResponseDTO'
         type: array
       title:
         type: string
-      updated_at:
+    type: object
+  github_com_lshigami_Ringtails_internal_dto.TestSummaryDTO:
+    properties:
+      created_at:
         type: string
+      description:
+        type: string
+      id:
+        type: integer
+      question_count:
+        type: integer
+      title:
+        type: string
+    type: object
+  github_com_lshigami_Ringtails_internal_dto.UserAnswerDTO:
+    properties:
+      question_id:
+        type: integer
+      user_answer:
+        type: string
+    required:
+    - question_id
+    - user_answer
     type: object
 host: localhost:8080
 info:
   contact:
-    email: support@swagger.io
+    email: support@example.com
     name: API Support
-    url: http://www.swagger.io/support
-  description: This is a server for a TOEIC Writing practice application with AI feedback.
-    Supports structured tests and various question types including picture description.
+    url: http://example.com/support
+  description: API for TOEIC Writing practice with structured tests and AI feedback.
+    Designed for full test submissions and history.
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   termsOfService: http://swagger.io/terms/
-  title: TOEIC Writing Practice API
-  version: "1.1"
+  title: TOEIC Writing Practice API (Revised V2)
+  version: "2.0"
 paths:
-  /attempts:
-    get:
-      description: Retrieve submitted attempts. Use 'user_id' and/or 'test_id' query
-        params to filter.
-      parameters:
-      - description: Filter attempts by User ID
-        in: query
-        name: user_id
-        type: integer
-      - description: Filter attempts by Test ID (shows attempts for questions within
-          this test)
-        in: query
-        name: test_id
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/dto.AttemptResponse'
-            type: array
-        "400":
-          description: Invalid user_id or test_id format
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Get all attempts (history), optionally filtered by user_id and/or test_id
-      tags:
-      - attempts
+  /admin/tests:
     post:
       consumes:
       - application/json
-      description: User submits their answer to a question, it gets evaluated by AI
+      description: Admin creates a new test with exactly 8 questions. All questions
+        must be provided.
       parameters:
-      - description: Attempt data
+      - description: Test creation data including all questions (must be 8 questions)
         in: body
-        name: attempt
+        name: test_data
         required: true
         schema:
-          $ref: '#/definitions/dto.SubmitAttemptRequest'
+          $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.TestCreateDTO'
       produces:
       - application/json
       responses:
         "201":
-          description: Created
+          description: Test created successfully
           schema:
-            $ref: '#/definitions/dto.AttemptResponse'
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.TestResponseDTO'
         "400":
-          description: Invalid request body or question not found
+          description: Invalid input data (e.g., not 8 questions, missing fields)
           schema:
-            $ref: '#/definitions/dto.ErrorResponse'
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse'
         "500":
-          description: Internal server error or AI service error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Submit a new attempt for a question
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse'
+      summary: (Admin) Create a new complete test
       tags:
-      - attempts
-  /attempts/{id}:
+      - Admin - Tests
+  /test-attempts/{attempt_id}:
     get:
-      description: Retrieve details of a single submitted attempt
+      description: Retrieve full details of a single test attempt, including all answers,
+        scores, and feedback.
       parameters:
-      - description: Attempt ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.AttemptResponse'
-        "400":
-          description: Invalid ID format
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Attempt not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Get a specific attempt by ID
-      tags:
-      - attempts
-  /done/{user_id}:
-    get:
-      description: Retrieves all tests that a user has attempted
-      parameters:
-      - description: User ID
-        in: path
-        name: user_id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/dto.TestResponse'
-            type: array
-        "400":
-          description: Invalid User ID format
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Get all completed tests for a specific user
-      tags:
-      - tests
-  /questions:
-    get:
-      description: Retrieve TOEIC writing questions. Use 'test_id' query param to
-        filter by test.
-      parameters:
-      - description: Filter by Test ID
-        in: query
-        name: test_id
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/dto.QuestionResponse'
-            type: array
-        "400":
-          description: Invalid test_id format
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Get all questions, optionally filtered by test ID
-      tags:
-      - questions
-    post:
-      consumes:
-      - application/json
-      description: Add a new TOEIC writing question. If TestID is provided, it associates
-        with that test.
-      parameters:
-      - description: Question data
-        in: body
-        name: question
-        required: true
-        schema:
-          $ref: '#/definitions/dto.CreateQuestionRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/dto.QuestionResponse'
-        "400":
-          description: Invalid request body or invalid TestID
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Create a new question (standalone or for a test)
-      tags:
-      - questions
-  /questions/{id}:
-    delete:
-      description: Remove a question from the system
-      parameters:
-      - description: Question ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      responses:
-        "204":
-          description: No Content
-        "400":
-          description: Invalid ID format
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Question not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Delete a question
-      tags:
-      - questions
-    get:
-      description: Retrieve a specific TOEIC writing question
-      parameters:
-      - description: Question ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.QuestionResponse'
-        "400":
-          description: Invalid ID format
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Question not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Get a question by ID
-      tags:
-      - questions
-    put:
-      consumes:
-      - application/json
-      description: Modify an existing TOEIC writing question
-      parameters:
-      - description: Question ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Updated question data
-        in: body
-        name: question
-        required: true
-        schema:
-          $ref: '#/definitions/dto.CreateQuestionRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.QuestionResponse'
-        "400":
-          description: Invalid request body or ID
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Question not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Update an existing question
-      tags:
-      - questions
-  /result/{test_id}/{user_id}:
-    get:
-      description: Retrieves all attempts made by a user for a specific test
-      parameters:
-      - description: Test ID
-        in: path
-        name: test_id
-        required: true
-        type: integer
-      - description: User ID
-        in: path
-        name: user_id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.TestAttemptsResponse'
-        "400":
-          description: Invalid Test ID or User ID format
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Test not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Get all attempts for a specific test by a user
-      tags:
-      - tests
-  /result/{test_id}/attempt/{attempt_id}:
-    get:
-      consumes:
-      - application/json
-      description: Returns detailed information about a specific test attempt including
-        all questions and answers
-      parameters:
-      - description: Test ID
-        in: path
-        name: test_id
-        required: true
-        type: integer
-      - description: Attempt ID
+      - description: Test Attempt ID
         in: path
         name: attempt_id
         required: true
@@ -664,28 +245,45 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.TestAttemptDetailResponse'
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.TestAttemptDetailDTO'
         "400":
-          description: Invalid ID format
+          description: Invalid Test Attempt ID format
           schema:
-            $ref: '#/definitions/dto.ErrorResponse'
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse'
         "404":
-          description: Test or attempt not found
+          description: Test Attempt not found
           schema:
-            $ref: '#/definitions/dto.ErrorResponse'
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Get details of a specific test attempt
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse'
+      summary: (User) Get details of a specific test attempt
       tags:
-      - result
-  /result/{test_id}/attempts:
+      - User - Tests & Attempts
+  /tests:
     get:
-      consumes:
+      description: Get a list of tests with summary information.
+      produces:
       - application/json
-      description: Returns a list of all attempts for a specific test with basic information
-        like date, user, score
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.TestSummaryDTO'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse'
+      summary: (User) List all available tests
+      tags:
+      - User - Tests & Attempts
+  /tests/{test_id}:
+    get:
+      description: Get full details of a test, including all its questions, for a
+        user to start an attempt.
       parameters:
       - description: Test ID
         in: path
@@ -698,183 +296,74 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.TestAttemptsListResponse'
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.TestResponseDTO'
         "400":
           description: Invalid Test ID format
           schema:
-            $ref: '#/definitions/dto.ErrorResponse'
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse'
         "404":
           description: Test not found
           schema:
-            $ref: '#/definitions/dto.ErrorResponse'
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Get list of attempts for a test
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse'
+      summary: (User) Get details of a specific test
       tags:
-      - result
-  /tests:
-    get:
-      description: Retrieve all TOEIC writing tests. Use 'with_questions=true' query
-        param to include questions.
-      parameters:
-      - description: Include questions in the response
-        in: query
-        name: with_questions
-        type: boolean
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/dto.TestResponse'
-            type: array
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Get all tests
-      tags:
-      - tests
+      - User - Tests & Attempts
+  /tests/{test_id}/attempts:
     post:
       consumes:
       - application/json
-      description: Add a new TOEIC writing test, optionally with its questions
+      description: User submits answers for questions in a specific test. AI scoring
+        happens in the background.
       parameters:
-      - description: Test data including optional questions
+      - description: ID of the Test being attempted
+        in: path
+        name: test_id
+        required: true
+        type: integer
+      - description: User ID (optional for now) and list of answers
         in: body
-        name: test
+        name: submission_data
         required: true
         schema:
-          $ref: '#/definitions/dto.CreateTestRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/dto.TestResponse'
-        "400":
-          description: Invalid request body
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Create a new test
-      tags:
-      - tests
-  /tests/{id}:
-    delete:
-      description: Delete a test and its associated questions
-      parameters:
-      - description: Test ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      responses:
-        "204":
-          description: No Content
-        "400":
-          description: Invalid ID format
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Test not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Delete a test
-      tags:
-      - tests
-    get:
-      description: Retrieve a specific TOEIC writing test and all its associated questions
-      parameters:
-      - description: Test ID
-        in: path
-        name: id
-        required: true
-        type: integer
+          $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.TestAttemptSubmitDTO'
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Attempt submitted and processing started. Details might be
+            partial until scoring completes.
           schema:
-            $ref: '#/definitions/dto.TestResponse'
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.TestAttemptDetailDTO'
         "400":
-          description: Invalid ID format
+          description: Invalid input (e.g., bad Test ID, invalid answers format)
           schema:
-            $ref: '#/definitions/dto.ErrorResponse'
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse'
         "404":
           description: Test not found
           schema:
-            $ref: '#/definitions/dto.ErrorResponse'
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse'
         "500":
-          description: Internal server error
+          description: Error processing submission
           schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Get a test by ID with its questions
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse'
+      summary: (User) Submit answers for an entire test
       tags:
-      - tests
-    put:
-      consumes:
-      - application/json
-      description: Update the title or description of an existing test
-      parameters:
-      - description: Test ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Test metadata to update (only Title and Description are used)
-        in: body
-        name: test_metadata
-        required: true
-        schema:
-          $ref: '#/definitions/dto.CreateTestRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.TestResponse'
-        "400":
-          description: Invalid request body or ID
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Test not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Update a test's metadata
-      tags:
-      - tests
-  /tests/{id}/history:
+      - User - Tests & Attempts
+  /tests/{test_id}/my-attempts:
     get:
-      description: Retrieves all questions of a test and the user's attempts for each
-        question.
+      description: Retrieve a list of summary information for all attempts a user
+        made on a test.
       parameters:
       - description: Test ID
         in: path
-        name: id
+        name: test_id
         required: true
         type: integer
-      - description: User ID to filter history for. If not provided, might show for
-          a default/anonymous user or be restricted.
+      - description: User ID to filter attempts. (Temporary - will be from auth token)
         in: query
         name: user_id
         type: integer
@@ -884,103 +373,20 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.TestAttemptHistoryResponseDTO'
+            items:
+              $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.TestAttemptSummaryDTO'
+            type: array
         "400":
-          description: Invalid Test ID or User ID format
+          description: Invalid ID format for Test ID or User ID
           schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Test not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Get user's attempt history for a specific test
+            $ref: '#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse'
+      summary: (User) Get all attempts by a user for a specific test
       tags:
-      - tests
-  /tests/{id}/questions:
-    post:
-      consumes:
-      - application/json
-      description: Creates a new question and associates it with the specified test
-      parameters:
-      - description: Test ID to add question to
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Question data (TestID in body will be ignored, OrderInTest should
-          be unique for the test)
-        in: body
-        name: question
-        required: true
-        schema:
-          $ref: '#/definitions/dto.CreateQuestionRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/dto.QuestionResponse'
-        "400":
-          description: Invalid request body or Test ID
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Test not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Add a question to an existing test
-      tags:
-      - tests
-  /tests/{id}/submit:
-    post:
-      consumes:
-      - application/json
-      description: User submits a collection of answers for all (or some) questions
-        in a test.
-      parameters:
-      - description: Test ID to submit answers for
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: User ID and list of answers (question_id, user_answer)
-        in: body
-        name: submission_data
-        required: true
-        schema:
-          $ref: '#/definitions/dto.SubmitFullTestRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Successfully submitted with details of created attempts
-          schema:
-            $ref: '#/definitions/dto.SubmitFullTestResponse'
-        "400":
-          description: Invalid request body, Test ID, or invalid question IDs within
-            submission
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: Test not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Internal server error during submission processing
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Submit all answers for a specific test
-      tags:
-      - tests
+      - User - Tests & Attempts
 schemes:
 - http
 - https

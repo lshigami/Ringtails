@@ -8,124 +8,177 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/lshigami/Ringtails/config"
-	"gorm.io/gorm"
-
 	"github.com/lshigami/Ringtails/database"
-	_ "github.com/lshigami/Ringtails/docs"
-	"github.com/lshigami/Ringtails/internal/controller"
-	"github.com/lshigami/Ringtails/internal/logger"
+	_ "github.com/lshigami/Ringtails/docs" // Swagger docs - auto-generated
+	adminctrl "github.com/lshigami/Ringtails/internal/controller/admin"
+	userctrl "github.com/lshigami/Ringtails/internal/controller/user"
+	"github.com/lshigami/Ringtails/internal/logger" // Assuming logger.Init() is global or provide a logger instance
 	"github.com/lshigami/Ringtails/internal/model"
 	"github.com/lshigami/Ringtails/internal/repository"
 	"github.com/lshigami/Ringtails/internal/service"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/log" // Global zerolog instance
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-
 	"go.uber.org/fx"
+	"gorm.io/gorm"
 )
 
-// @title TOEIC Writing Practice API
-// @version 1.1
-// @description This is a server for a TOEIC Writing practice application with AI feedback. Supports structured tests and various question types including picture description.
+// @title TOEIC Writing Practice API (Revised V2)
+// @version 2.0
+// @description API for TOEIC Writing practice with structured tests and AI feedback. Designed for full test submissions and history.
 // @termsOfService http://swagger.io/terms/
-
 // @contact.name API Support
-// @contact.url http://www.swagger.io/support
-// @contact.email support@swagger.io
-
+// @contact.url http://example.com/support
+// @contact.email support@example.com
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-
 // @host localhost:8080
-// @BasePath  /api/v1
+// @BasePath /api/v1
 // @schemes http https
 func main() {
+	// Initialize global logger (if your logger.Init() does this)
+	logger.Init() // Call this early
 
 	app := fx.New(
+		// Core Application Components
 		fx.Provide(
 			config.NewConfig,
-			database.NewDatabase,
-			NewGinEngine,
+			database.NewDatabase, // Provides *gorm.DB
+			NewGinEngine,         // Provides *gin.Engine
+		),
 
-			// Repositories
-			repository.NewQuestionRepository,
-			repository.NewAttemptRepository,
+		// Repositories Layer
+		fx.Provide(
 			repository.NewTestRepository,
+			repository.NewQuestionRepository,
+			repository.NewTestAttemptRepository,
+			repository.NewAnswerRepository,
+		),
 
-			// Services
-			func(testRepo repository.TestRepository, questionRepo repository.QuestionRepository, attemptRepo repository.AttemptRepository, db *gorm.DB) service.TestService {
-				return service.NewTestService(testRepo, questionRepo, attemptRepo, db)
-			},
-			func(questionRepo repository.QuestionRepository, testRepo repository.TestRepository) service.QuestionService {
-				return service.NewQuestionService(questionRepo, testRepo)
-			},
-			service.NewGeminiService,
-			service.NewAttemptService,
+		// Services Layer
+		fx.Provide(
+			service.NewAdminTestService,
+			service.NewUserTestService,
+			service.NewGeminiLLMService, // Renamed Gemini service
+			service.NewTestSubmissionService,
+		),
 
-			// Controllers
-			func(qSvc service.QuestionService, attSvc service.AttemptService, tSvc service.TestService, db *gorm.DB) *controller.Controller {
-				return controller.NewController(qSvc, attSvc, tSvc, db)
+		// API Controllers Layer
+		fx.Provide(
+			adminctrl.NewAdminTestController,
+			// UserTestController needs *gorm.DB for TestSubmissionService's transaction handling
+			func(uts service.UserTestService, tss service.TestSubmissionService, db *gorm.DB) *userctrl.UserTestController {
+				return userctrl.NewUserTestController(uts, tss, db)
 			},
 		),
-		fx.Invoke(RegisterRoutes),
+
+		// Invokers - Functions that are executed by Fx
+		fx.Invoke(RegisterRoutesAndStartServer), // Combined registration and server start
 		fx.Invoke(AutoMigrateDB),
 	)
 
+	// Start the application
 	if err := app.Start(context.Background()); err != nil {
 		log.Fatal().Err(err).Msg("Failed to start application")
 	}
-	<-app.Done()
-	log.Info().Msg("Application shutting down...")
 
+	// Wait for a shutdown signal
+	<-app.Done()
+	log.Info().Msg("Application shutting down gracefully...")
+	// fx.Stop can be called here for graceful shutdown if hooks are complex
 }
+
 func NewGinEngine() *gin.Engine {
-	gin.SetMode(gin.ReleaseMode)
+	// Set Gin mode based on an environment variable or config if desired
+	// For development:
+	gin.SetMode(gin.DebugMode)
+	// For production:
+	// gin.SetMode(gin.ReleaseMode)
+
 	r := gin.New()
+
+	// Custom logger using Zerolog for Gin (optional, Gin's default is also good)
+	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		// Log with Zerolog
+		log.Info().
+			Str("client_ip", param.ClientIP).
+			Str("method", param.Method).
+			Str("path", param.Path).
+			Int("status_code", param.StatusCode).
+			Dur("latency", param.Latency).
+			Str("user_agent", param.Request.UserAgent()).
+			Str("error_message", param.ErrorMessage).
+			Msg("gin_request")
+		return "" // Returning empty string to avoid double logging if Gin's default logger is also active
+	}))
 	r.Use(gin.Recovery())
 
-	// Configure CORS
+	// CORS Configuration
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowOrigins:     []string{"*"}, // Be more specific in production
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// Add swagger route
+	// Swagger UI
+	// URL: http://localhost:PORT/swagger/index.html
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	return r
 }
 
-func RegisterRoutes(
-	lifecycle fx.Lifecycle,
+// RegisterRoutesAndStartServer configures API routes and manages server lifecycle.
+func RegisterRoutesAndStartServer(
+	lc fx.Lifecycle,
 	router *gin.Engine,
 	cfg *config.Config,
-	ctrl *controller.Controller,
+	adminTestCtrl *adminctrl.AdminTestController,
+	userTestCtrl *userctrl.UserTestController,
 ) {
-	ctrl.RegisterRoutes(router)
-	logger.Init()
+	// Admin Routes (prefixed with /api/v2/admin)
+	adminAPIGroup := router.Group("/api/v2/admin")
+	{
+		testsAdminGroup := adminAPIGroup.Group("/tests")
+		testsAdminGroup.POST("", adminTestCtrl.CreateTest)
+		// Add more admin routes for tests here (e.g., update, delete test)
+	}
 
+	// User Routes (prefixed with /api/v2)
+	userAPIGroup := router.Group("/api/v2")
+	{
+		// Test listing and details
+		userAPIGroup.GET("/tests", userTestCtrl.GetAllTests)
+		userAPIGroup.GET("/tests/:test_id", userTestCtrl.GetTestDetails)
+
+		// Test Attempts
+		userAPIGroup.POST("/tests/:test_id/attempts", userTestCtrl.SubmitTestAttempt)
+		userAPIGroup.GET("/tests/:test_id/my-attempts", userTestCtrl.GetUserTestAttempts) // User ID from query/auth
+		userAPIGroup.GET("/test-attempts/:attempt_id", userTestCtrl.GetSpecificTestAttemptDetails)
+	}
+
+	// HTTP Server Setup and Lifecycle
 	server := &http.Server{
 		Addr:    ":" + cfg.Server.Port,
 		Handler: router,
 	}
 
-	lifecycle.Append(fx.Hook{
+	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			log.Info().Msgf("Starting server on port %s", cfg.Server.Port)
+			log.Info().Msgf("TOEIC Writing API V2 server starting on port %s", cfg.Server.Port)
 			log.Info().Msgf("Swagger UI available at http://localhost:%s/swagger/index.html", cfg.Server.Port)
 			go func() {
 				if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-					log.Fatal().Err(err).Msg("Failed to start server")
+					log.Fatal().Err(err).Msg("Server ListenAndServe failed")
 				}
 			}()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			log.Info().Msg("Shutting down server")
+			log.Info().Msg("Server shutting down...")
+			// Create a context with timeout for shutdown
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			return server.Shutdown(shutdownCtx)
@@ -134,16 +187,18 @@ func RegisterRoutes(
 }
 
 func AutoMigrateDB(db *gorm.DB) error {
-	log.Info().Msg("Running database migrations...")
+	log.Info().Msg("Running database migrations for V2 models...")
 	err := db.AutoMigrate(
-		&model.Test{}, // Add Test model
+		&model.Test{},
 		&model.Question{},
-		&model.Attempt{},
+		&model.TestAttempt{},
+		&model.Answer{},
+		// &model.User{}, // If you add a User model later
 	)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to migrate database")
+		log.Error().Err(err).Msg("Database migration failed")
 		return err
 	}
-	log.Info().Msg("Database migration completed successfully.")
+	log.Info().Msg("Database V2 migration completed successfully.")
 	return nil
 }

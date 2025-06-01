@@ -9,10 +9,12 @@ type TestRepository interface {
 	Create(test *model.Test) error
 	FindByID(id uint) (*model.Test, error)
 	FindByIDWithQuestions(id uint) (*model.Test, error)
-	FindAll() ([]model.Test, error)
-	FindAllWithQuestions() ([]model.Test, error)
-	Update(test *model.Test) error
-	Delete(id uint) error
+	FindAllWithQuestionCount() ([]struct {
+		model.Test
+		QuestionCount int
+	}, error)
+	// Update(test *model.Test) error // Add if admin needs to update test metadata
+	// Delete(id uint) error         // Add if admin needs to delete tests
 }
 
 type testRepository struct {
@@ -24,53 +26,37 @@ func NewTestRepository(db *gorm.DB) TestRepository {
 }
 
 func (r *testRepository) Create(test *model.Test) error {
-	for i := range test.Questions {
-		test.Questions[i].TestID = &test.ID
-	}
+	// GORM's Create with associations will handle creating questions if test.Questions is populated
+	// and Question model has TestID foreign key, and Test model has Questions []Question `gorm:"foreignKey:TestID"`
 	return r.db.Create(test).Error
 }
 
 func (r *testRepository) FindByID(id uint) (*model.Test, error) {
 	var test model.Test
-	if err := r.db.First(&test, id).Error; err != nil {
-		return nil, err
-	}
-	return &test, nil
+	err := r.db.First(&test, id).Error
+	return &test, err
 }
 
 func (r *testRepository) FindByIDWithQuestions(id uint) (*model.Test, error) {
 	var test model.Test
-	if err := r.db.Preload("Questions", func(db *gorm.DB) *gorm.DB {
+	err := r.db.Preload("Questions", func(db *gorm.DB) *gorm.DB {
 		return db.Order("questions.order_in_test ASC")
-	}).First(&test, id).Error; err != nil {
-		return nil, err
+	}).First(&test, id).Error
+	return &test, err
+}
+
+func (r *testRepository) FindAllWithQuestionCount() ([]struct {
+	model.Test
+	QuestionCount int
+}, error) {
+	var results []struct {
+		model.Test
+		QuestionCount int
 	}
-	return &test, nil
-}
-
-func (r *testRepository) FindAll() ([]model.Test, error) {
-	var tests []model.Test
-	if err := r.db.Order("created_at desc").Find(&tests).Error; err != nil {
-		return nil, err
-	}
-	return tests, nil
-}
-
-func (r *testRepository) FindAllWithQuestions() ([]model.Test, error) {
-	var tests []model.Test
-	if err := r.db.Preload("Questions", func(db *gorm.DB) *gorm.DB {
-		return db.Order("questions.order_in_test ASC")
-	}).Order("created_at desc").Find(&tests).Error; err != nil {
-		return nil, err
-	}
-	return tests, nil
-}
-
-func (r *testRepository) Update(test *model.Test) error {
-	return r.db.Session(&gorm.Session{FullSaveAssociations: true}).Updates(test).Error
-
-}
-
-func (r *testRepository) Delete(id uint) error {
-	return r.db.Delete(&model.Test{}, id).Error
+	err := r.db.Model(&model.Test{}).
+		Select("tests.*, (SELECT COUNT(*) FROM questions WHERE questions.test_id = tests.id AND questions.deleted_at IS NULL) as question_count").
+		Order("tests.created_at DESC").
+		Where("tests.deleted_at IS NULL"). // Only select non-deleted tests
+		Scan(&results).Error
+	return results, err
 }

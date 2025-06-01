@@ -5,73 +5,26 @@
     ],
     "swagger": "2.0",
     "info": {
-        "description": "This is a server for a TOEIC Writing practice application with AI feedback. Supports structured tests and various question types including picture description.",
-        "title": "TOEIC Writing Practice API",
+        "description": "API for TOEIC Writing practice with structured tests and AI feedback. Designed for full test submissions and history.",
+        "title": "TOEIC Writing Practice API (Revised V2)",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
             "name": "API Support",
-            "url": "http://www.swagger.io/support",
-            "email": "support@swagger.io"
+            "url": "http://example.com/support",
+            "email": "support@example.com"
         },
         "license": {
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "1.1"
+        "version": "2.0"
     },
     "host": "localhost:8080",
     "basePath": "/api/v1",
     "paths": {
-        "/attempts": {
-            "get": {
-                "description": "Retrieve submitted attempts. Use 'user_id' and/or 'test_id' query params to filter.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "attempts"
-                ],
-                "summary": "Get all attempts (history), optionally filtered by user_id and/or test_id",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Filter attempts by User ID",
-                        "name": "user_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Filter attempts by Test ID (shows attempts for questions within this test)",
-                        "name": "test_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/dto.AttemptResponse"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid user_id or test_id format",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            },
+        "/admin/tests": {
             "post": {
-                "description": "User submits their answer to a question, it gets evaluated by AI",
+                "description": "Admin creates a new test with exactly 8 questions. All questions must be provided.",
                 "consumes": [
                     "application/json"
                 ],
@@ -79,387 +32,56 @@
                     "application/json"
                 ],
                 "tags": [
-                    "attempts"
+                    "Admin - Tests"
                 ],
-                "summary": "Submit a new attempt for a question",
+                "summary": "(Admin) Create a new complete test",
                 "parameters": [
                     {
-                        "description": "Attempt data",
-                        "name": "attempt",
+                        "description": "Test creation data including all questions (must be 8 questions)",
+                        "name": "test_data",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.SubmitAttemptRequest"
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.TestCreateDTO"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Test created successfully",
                         "schema": {
-                            "$ref": "#/definitions/dto.AttemptResponse"
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.TestResponseDTO"
                         }
                     },
                     "400": {
-                        "description": "Invalid request body or question not found",
+                        "description": "Invalid input data (e.g., not 8 questions, missing fields)",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal server error or AI service error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/attempts/{id}": {
+        "/test-attempts/{attempt_id}": {
             "get": {
-                "description": "Retrieve details of a single submitted attempt",
+                "description": "Retrieve full details of a single test attempt, including all answers, scores, and feedback.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "attempts"
+                    "User - Tests \u0026 Attempts"
                 ],
-                "summary": "Get a specific attempt by ID",
+                "summary": "(User) Get details of a specific test attempt",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Attempt ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.AttemptResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid ID format",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Attempt not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/done/{user_id}": {
-            "get": {
-                "description": "Retrieves all tests that a user has attempted",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "tests"
-                ],
-                "summary": "Get all completed tests for a specific user",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "User ID",
-                        "name": "user_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/dto.TestResponse"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid User ID format",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/questions": {
-            "get": {
-                "description": "Retrieve TOEIC writing questions. Use 'test_id' query param to filter by test.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "questions"
-                ],
-                "summary": "Get all questions, optionally filtered by test ID",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Filter by Test ID",
-                        "name": "test_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/dto.QuestionResponse"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid test_id format",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Add a new TOEIC writing question. If TestID is provided, it associates with that test.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "questions"
-                ],
-                "summary": "Create a new question (standalone or for a test)",
-                "parameters": [
-                    {
-                        "description": "Question data",
-                        "name": "question",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.CreateQuestionRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/dto.QuestionResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body or invalid TestID",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/questions/{id}": {
-            "get": {
-                "description": "Retrieve a specific TOEIC writing question",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "questions"
-                ],
-                "summary": "Get a question by ID",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Question ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.QuestionResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid ID format",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Question not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Modify an existing TOEIC writing question",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "questions"
-                ],
-                "summary": "Update an existing question",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Question ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Updated question data",
-                        "name": "question",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.CreateQuestionRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.QuestionResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body or ID",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Question not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Remove a question from the system",
-                "tags": [
-                    "questions"
-                ],
-                "summary": "Delete a question",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Question ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Invalid ID format",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Question not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/result/{test_id}/attempt/{attempt_id}": {
-            "get": {
-                "description": "Returns detailed information about a specific test attempt including all questions and answers",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "result"
-                ],
-                "summary": "Get details of a specific test attempt",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Test ID",
-                        "name": "test_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Attempt ID",
+                        "description": "Test Attempt ID",
                         "name": "attempt_id",
                         "in": "path",
                         "required": true
@@ -469,129 +91,25 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.TestAttemptDetailResponse"
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.TestAttemptDetailDTO"
                         }
                     },
                     "400": {
-                        "description": "Invalid ID format",
+                        "description": "Invalid Test Attempt ID format",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Test or attempt not found",
+                        "description": "Test Attempt not found",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/result/{test_id}/attempts": {
-            "get": {
-                "description": "Returns a list of all attempts for a specific test with basic information like date, user, score",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "result"
-                ],
-                "summary": "Get list of attempts for a test",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Test ID",
-                        "name": "test_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.TestAttemptsListResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid Test ID format",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Test not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/result/{test_id}/{user_id}": {
-            "get": {
-                "description": "Retrieves all attempts made by a user for a specific test",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "tests"
-                ],
-                "summary": "Get all attempts for a specific test by a user",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Test ID",
-                        "name": "test_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "User ID",
-                        "name": "user_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.TestAttemptsResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid Test ID or User ID format",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Test not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
                         }
                     }
                 }
@@ -599,19 +117,161 @@
         },
         "/tests": {
             "get": {
-                "description": "Retrieve all TOEIC writing tests. Use 'with_questions=true' query param to include questions.",
+                "description": "Get a list of tests with summary information.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "tests"
+                    "User - Tests \u0026 Attempts"
                 ],
-                "summary": "Get all tests",
+                "summary": "(User) List all available tests",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.TestSummaryDTO"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tests/{test_id}": {
+            "get": {
+                "description": "Get full details of a test, including all its questions, for a user to start an attempt.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User - Tests \u0026 Attempts"
+                ],
+                "summary": "(User) Get details of a specific test",
                 "parameters": [
                     {
-                        "type": "boolean",
-                        "description": "Include questions in the response",
-                        "name": "with_questions",
+                        "type": "integer",
+                        "description": "Test ID",
+                        "name": "test_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.TestResponseDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid Test ID format",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Test not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tests/{test_id}/attempts": {
+            "post": {
+                "description": "User submits answers for questions in a specific test. AI scoring happens in the background.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User - Tests \u0026 Attempts"
+                ],
+                "summary": "(User) Submit answers for an entire test",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID of the Test being attempted",
+                        "name": "test_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "User ID (optional for now) and list of answers",
+                        "name": "submission_data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.TestAttemptSubmitDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Attempt submitted and processing started. Details might be partial until scoring completes.",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.TestAttemptDetailDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid input (e.g., bad Test ID, invalid answers format)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Test not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Error processing submission",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/tests/{test_id}/my-attempts": {
+            "get": {
+                "description": "Retrieve a list of summary information for all attempts a user made on a test.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User - Tests \u0026 Attempts"
+                ],
+                "summary": "(User) Get all attempts by a user for a specific test",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Test ID",
+                        "name": "test_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "User ID to filter attempts. (Temporary - will be from auth token)",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -621,372 +281,20 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/dto.TestResponse"
+                                "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.TestAttemptSummaryDTO"
                             }
                         }
                     },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Add a new TOEIC writing test, optionally with its questions",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "tests"
-                ],
-                "summary": "Create a new test",
-                "parameters": [
-                    {
-                        "description": "Test data including optional questions",
-                        "name": "test",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.CreateTestRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/dto.TestResponse"
-                        }
-                    },
                     "400": {
-                        "description": "Invalid request body",
+                        "description": "Invalid ID format for Test ID or User ID",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/tests/{id}": {
-            "get": {
-                "description": "Retrieve a specific TOEIC writing test and all its associated questions",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "tests"
-                ],
-                "summary": "Get a test by ID with its questions",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Test ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.TestResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid ID format",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Test not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Update the title or description of an existing test",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "tests"
-                ],
-                "summary": "Update a test's metadata",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Test ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Test metadata to update (only Title and Description are used)",
-                        "name": "test_metadata",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.CreateTestRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.TestResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body or ID",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Test not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a test and its associated questions",
-                "tags": [
-                    "tests"
-                ],
-                "summary": "Delete a test",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Test ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Invalid ID format",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Test not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/tests/{id}/history": {
-            "get": {
-                "description": "Retrieves all questions of a test and the user's attempts for each question.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "tests"
-                ],
-                "summary": "Get user's attempt history for a specific test",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Test ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "User ID to filter history for. If not provided, might show for a default/anonymous user or be restricted.",
-                        "name": "user_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.TestAttemptHistoryResponseDTO"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid Test ID or User ID format",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Test not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/tests/{id}/questions": {
-            "post": {
-                "description": "Creates a new question and associates it with the specified test",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "tests"
-                ],
-                "summary": "Add a question to an existing test",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Test ID to add question to",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Question data (TestID in body will be ignored, OrderInTest should be unique for the test)",
-                        "name": "question",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.CreateQuestionRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/dto.QuestionResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body or Test ID",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Test not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/tests/{id}/submit": {
-            "post": {
-                "description": "User submits a collection of answers for all (or some) questions in a test.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "tests"
-                ],
-                "summary": "Submit all answers for a specific test",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Test ID to submit answers for",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "User ID and list of answers (question_id, user_answer)",
-                        "name": "submission_data",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.SubmitFullTestRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successfully submitted with details of created attempts",
-                        "schema": {
-                            "$ref": "#/definitions/dto.SubmitFullTestResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body, Test ID, or invalid question IDs within submission",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Test not found",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error during submission processing",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ErrorResponse"
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.ErrorResponse"
                         }
                     }
                 }
@@ -994,180 +302,52 @@
         }
     },
     "definitions": {
-        "dto.AnswerForTestSubmission": {
-            "type": "object",
-            "required": [
-                "question_id",
-                "user_answer"
-            ],
-            "properties": {
-                "question_id": {
-                    "type": "integer"
-                },
-                "user_answer": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.AttemptInfoDTO": {
-            "type": "object",
-            "properties": {
-                "ai_feedback": {
-                    "description": "Có thể là omitempty nếu không muốn load ngay",
-                    "type": "string"
-                },
-                "attempt_id": {
-                    "type": "integer"
-                },
-                "submitted_at": {
-                    "type": "string"
-                },
-                "user_answer": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.AttemptResponse": {
+        "github_com_lshigami_Ringtails_internal_dto.AnswerResponseDTO": {
             "type": "object",
             "properties": {
                 "ai_feedback": {
                     "type": "string"
                 },
-                "created_at": {
-                    "type": "string"
+                "ai_score": {
+                    "type": "number"
                 },
                 "id": {
                     "type": "integer"
                 },
                 "question": {
-                    "$ref": "#/definitions/dto.QuestionResponse"
+                    "description": "Contains full question details",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.QuestionResponseDTO"
+                        }
+                    ]
                 },
                 "question_id": {
                     "type": "integer"
-                },
-                "submitted_at": {
-                    "type": "string"
                 },
                 "user_answer": {
                     "type": "string"
-                },
-                "user_id": {
-                    "type": "integer"
                 }
             }
         },
-        "dto.CreateQuestionRequest": {
+        "github_com_lshigami_Ringtails_internal_dto.ErrorResponse": {
             "type": "object",
-            "required": [
-                "prompt",
-                "title",
-                "type"
-            ],
             "properties": {
-                "given_word1": {
-                    "type": "string"
-                },
-                "given_word2": {
-                    "type": "string"
-                },
-                "image_url": {
-                    "description": "For type=\"sentence_picture\"",
-                    "type": "string"
-                },
-                "order_in_test": {
-                    "description": "1-8, relevant if TestID is provided or part of CreateTestWithQuestionsRequest",
-                    "type": "integer"
-                },
-                "prompt": {
-                    "description": "Main text for email/essay, or general instruction for picture",
-                    "type": "string"
-                },
-                "test_id": {
-                    "description": "Optional: associate with an existing test",
-                    "type": "integer"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string",
-                    "enum": [
-                        "sentence_picture",
-                        "email_response",
-                        "opinion_essay"
-                    ]
-                }
-            }
-        },
-        "dto.CreateTestRequest": {
-            "type": "object",
-            "required": [
-                "title"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "questions": {
-                    "description": "Optional: create questions along with the test",
+                "details": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.QuestionForTestRequest"
+                        "type": "string"
                     }
                 },
-                "title": {
+                "message": {
                     "type": "string"
                 }
             }
         },
-        "dto.ErrorResponse": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.QuestionAttemptHistoryDTO": {
-            "type": "object",
-            "properties": {
-                "attempts": {
-                    "description": "Chỉ chứa thông tin cần thiết của attempt",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.AttemptInfoDTO"
-                    }
-                },
-                "given_word1": {
-                    "type": "string"
-                },
-                "given_word2": {
-                    "type": "string"
-                },
-                "image_url": {
-                    "type": "string"
-                },
-                "order_in_test": {
-                    "type": "integer"
-                },
-                "prompt": {
-                    "description": "For email/essay",
-                    "type": "string"
-                },
-                "question_id": {
-                    "type": "integer"
-                },
-                "question_title": {
-                    "type": "string"
-                },
-                "question_type": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.QuestionForTestRequest": {
+        "github_com_lshigami_Ringtails_internal_dto.QuestionCreateDTO": {
             "type": "object",
             "required": [
+                "max_score",
                 "order_in_test",
                 "prompt",
                 "title",
@@ -1175,16 +355,16 @@
             ],
             "properties": {
                 "given_word1": {
-                    "description": "Required if type=\"sentence_picture\"",
                     "type": "string"
                 },
                 "given_word2": {
-                    "description": "Required if type=\"sentence_picture\"",
                     "type": "string"
                 },
                 "image_url": {
-                    "description": "Required if type=\"sentence_picture\"",
                     "type": "string"
+                },
+                "max_score": {
+                    "type": "number"
                 },
                 "order_in_test": {
                     "type": "integer",
@@ -1207,12 +387,9 @@
                 }
             }
         },
-        "dto.QuestionResponse": {
+        "github_com_lshigami_Ringtails_internal_dto.QuestionResponseDTO": {
             "type": "object",
             "properties": {
-                "created_at": {
-                    "type": "string"
-                },
                 "given_word1": {
                     "type": "string"
                 },
@@ -1224,6 +401,9 @@
                 },
                 "image_url": {
                     "type": "string"
+                },
+                "max_score": {
+                    "type": "number"
                 },
                 "order_in_test": {
                     "type": "integer"
@@ -1239,31 +419,43 @@
                 },
                 "type": {
                     "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
                 }
             }
         },
-        "dto.SubmitAttemptRequest": {
+        "github_com_lshigami_Ringtails_internal_dto.TestAttemptDetailDTO": {
             "type": "object",
-            "required": [
-                "question_id",
-                "user_answer"
-            ],
             "properties": {
-                "question_id": {
+                "answers": {
+                    "description": "List of answers with their details",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.AnswerResponseDTO"
+                    }
+                },
+                "id": {
                     "type": "integer"
                 },
-                "user_answer": {
+                "status": {
                     "type": "string"
+                },
+                "submitted_at": {
+                    "type": "string"
+                },
+                "test_id": {
+                    "type": "integer"
+                },
+                "test_title": {
+                    "type": "string"
+                },
+                "total_score": {
+                    "type": "number"
                 },
                 "user_id": {
                     "type": "integer"
                 }
             }
         },
-        "dto.SubmitFullTestRequest": {
+        "github_com_lshigami_Ringtails_internal_dto.TestAttemptSubmitDTO": {
             "type": "object",
             "required": [
                 "answers"
@@ -1272,56 +464,23 @@
                 "answers": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.AnswerForTestSubmission"
+                        "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.UserAnswerDTO"
                     }
                 },
                 "user_id": {
-                    "description": "Optional User ID",
+                    "description": "Temporary, for non-auth user identification",
                     "type": "integer"
                 }
             }
         },
-        "dto.SubmitFullTestResponse": {
+        "github_com_lshigami_Ringtails_internal_dto.TestAttemptSummaryDTO": {
             "type": "object",
             "properties": {
-                "attempts": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.AttemptResponse"
-                    }
-                },
-                "errors": {
-                    "description": "To report any partial failures",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "submitted_count": {
+                "id": {
                     "type": "integer"
                 },
-                "test_id": {
-                    "type": "integer"
-                },
-                "user_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "dto.TestAttemptDetailResponse": {
-            "type": "object",
-            "properties": {
-                "attempt_id": {
-                    "type": "integer"
-                },
-                "questions_history": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.QuestionAttemptHistoryDTO"
-                    }
-                },
-                "score": {
-                    "type": "integer"
+                "status": {
+                    "type": "string"
                 },
                 "submitted_at": {
                     "type": "string"
@@ -1329,110 +488,38 @@
                 "test_id": {
                     "type": "integer"
                 },
-                "test_title": {
-                    "type": "string"
-                },
-                "total_questions": {
-                    "type": "integer"
+                "total_score": {
+                    "type": "number"
                 },
                 "user_id": {
                     "type": "integer"
-                },
-                "username": {
-                    "type": "string"
                 }
             }
         },
-        "dto.TestAttemptHistoryResponseDTO": {
+        "github_com_lshigami_Ringtails_internal_dto.TestCreateDTO": {
             "type": "object",
+            "required": [
+                "questions",
+                "title"
+            ],
             "properties": {
-                "questions_history": {
+                "description": {
+                    "type": "string"
+                },
+                "questions": {
                     "type": "array",
+                    "maxItems": 8,
+                    "minItems": 8,
                     "items": {
-                        "$ref": "#/definitions/dto.QuestionAttemptHistoryDTO"
+                        "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.QuestionCreateDTO"
                     }
                 },
-                "test_id": {
-                    "type": "integer"
-                },
-                "test_title": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "dto.TestAttemptsListItem": {
-            "type": "object",
-            "properties": {
-                "attempt_id": {
-                    "type": "integer"
-                },
-                "completed_questions": {
-                    "type": "integer"
-                },
-                "score": {
-                    "type": "integer"
-                },
-                "submitted_at": {
-                    "type": "string"
-                },
-                "total_questions": {
-                    "type": "integer"
-                },
-                "user_id": {
-                    "type": "integer"
-                },
-                "username": {
+                "title": {
                     "type": "string"
                 }
             }
         },
-        "dto.TestAttemptsListResponse": {
-            "type": "object",
-            "properties": {
-                "attempts": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.TestAttemptsListItem"
-                    }
-                },
-                "test_id": {
-                    "type": "integer"
-                },
-                "test_title": {
-                    "type": "string"
-                },
-                "total_count": {
-                    "type": "integer"
-                }
-            }
-        },
-        "dto.TestAttemptsResponse": {
-            "type": "object",
-            "properties": {
-                "attempts": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.AttemptResponse"
-                    }
-                },
-                "submitted_at": {
-                    "type": "string"
-                },
-                "test_id": {
-                    "type": "integer"
-                },
-                "test_title": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "dto.TestResponse": {
+        "github_com_lshigami_Ringtails_internal_dto.TestResponseDTO": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -1445,16 +532,47 @@
                     "type": "integer"
                 },
                 "questions": {
-                    "description": "Eager loaded questions",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.QuestionResponse"
+                        "$ref": "#/definitions/github_com_lshigami_Ringtails_internal_dto.QuestionResponseDTO"
                     }
                 },
                 "title": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_lshigami_Ringtails_internal_dto.TestSummaryDTO": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
                 },
-                "updated_at": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "question_count": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_lshigami_Ringtails_internal_dto.UserAnswerDTO": {
+            "type": "object",
+            "required": [
+                "question_id",
+                "user_answer"
+            ],
+            "properties": {
+                "question_id": {
+                    "type": "integer"
+                },
+                "user_answer": {
                     "type": "string"
                 }
             }
