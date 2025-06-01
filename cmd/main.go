@@ -23,7 +23,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// @title TOEIC Writing Practice API (Revised V2)
+// @title TOEIC Writing Practice API (Revised V1)
 // @version 2.0
 // @description API for TOEIC Writing practice with structured tests and AI feedback. Designed for full test submissions and history.
 // @termsOfService http://swagger.io/terms/
@@ -138,16 +138,16 @@ func RegisterRoutesAndStartServer(
 	adminTestCtrl *adminctrl.AdminTestController,
 	userTestCtrl *userctrl.UserTestController,
 ) {
-	// Admin Routes (prefixed with /api/v2/admin)
-	adminAPIGroup := router.Group("/api/v2/admin")
+	// Admin Routes (prefixed with /api/v1/admin)
+	adminAPIGroup := router.Group("/api/v1/admin")
 	{
 		testsAdminGroup := adminAPIGroup.Group("/tests")
 		testsAdminGroup.POST("", adminTestCtrl.CreateTest)
 		// Add more admin routes for tests here (e.g., update, delete test)
 	}
 
-	// User Routes (prefixed with /api/v2)
-	userAPIGroup := router.Group("/api/v2")
+	// User Routes (prefixed with /api/v1)
+	userAPIGroup := router.Group("/api/v1")
 	{
 		// Test listing and details
 		userAPIGroup.GET("/tests", userTestCtrl.GetAllTests)
@@ -167,7 +167,7 @@ func RegisterRoutesAndStartServer(
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			log.Info().Msgf("TOEIC Writing API V2 server starting on port %s", cfg.Server.Port)
+			log.Info().Msgf("TOEIC Writing API V1 server starting on port %s", cfg.Server.Port)
 			log.Info().Msgf("Swagger UI available at http://localhost:%s/swagger/index.html", cfg.Server.Port)
 			go func() {
 				if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -187,7 +187,7 @@ func RegisterRoutesAndStartServer(
 }
 
 func AutoMigrateDB(db *gorm.DB) error {
-	log.Info().Msg("Running database migrations for V2 models...")
+	log.Info().Msg("Running database migrations for V1 models...")
 	err := db.AutoMigrate(
 		&model.Test{},
 		&model.Question{},
@@ -199,6 +199,6 @@ func AutoMigrateDB(db *gorm.DB) error {
 		log.Error().Err(err).Msg("Database migration failed")
 		return err
 	}
-	log.Info().Msg("Database V2 migration completed successfully.")
+	log.Info().Msg("Database V1 migration completed successfully.")
 	return nil
 }

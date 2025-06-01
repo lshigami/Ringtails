@@ -195,7 +195,7 @@ info:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   termsOfService: http://swagger.io/terms/
-  title: TOEIC Writing Practice API (Revised V2)
+  title: TOEIC Writing Practice API (Revised V1)
   version: "2.0"
 paths:
   /admin/tests:

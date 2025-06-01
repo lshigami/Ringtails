@@ -6,7 +6,7 @@
     "swagger": "2.0",
     "info": {
         "description": "API for TOEIC Writing practice with structured tests and AI feedback. Designed for full test submissions and history.",
-        "title": "TOEIC Writing Practice API (Revised V2)",
+        "title": "TOEIC Writing Practice API (Revised V1)",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
             "name": "API Support",

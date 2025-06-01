@@ -588,7 +588,7 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "localhost:8080",
 	BasePath:         "/api/v1",
 	Schemes:          []string{"http", "https"},
-	Title:            "TOEIC Writing Practice API (Revised V2)",
+	Title:            "TOEIC Writing Practice API (Revised V1)",
 	Description:      "API for TOEIC Writing practice with structured tests and AI feedback. Designed for full test submissions and history.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
