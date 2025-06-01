@@ -8,6 +8,7 @@ import (
 
 type Attempt struct {
 	ID          uint           `gorm:"primarykey" json:"id"`
+	UserID      *uint          `json:"user_id,omitempty" gorm:"index"`
 	QuestionID  uint           `json:"question_id" gorm:"not null"`
 	Question    Question       `json:"question" gorm:"foreignKey:QuestionID"`
 	UserAnswer  string         `json:"user_answer" gorm:"type:text;not null"`

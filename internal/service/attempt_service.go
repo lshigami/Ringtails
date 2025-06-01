@@ -13,7 +13,7 @@ import (
 type AttemptService interface {
 	SubmitAttempt(req dto.SubmitAttemptRequest) (*dto.AttemptResponse, error)
 	GetAttempt(id uint) (*dto.AttemptResponse, error)
-	GetAllAttempts() ([]dto.AttemptResponse, error)
+	GetAllAttempts(userID *uint, testID *uint) ([]dto.AttemptResponse, error)
 }
 
 type attemptService struct {
@@ -89,8 +89,9 @@ func (s *attemptService) GetAttempt(id uint) (*dto.AttemptResponse, error) {
 	return &resp, nil
 }
 
-func (s *attemptService) GetAllAttempts() ([]dto.AttemptResponse, error) {
-	attempts, err := s.attemptRepo.FindAllWithQuestions()
+func (s *attemptService) GetAllAttempts(userID *uint, testID *uint) ([]dto.AttemptResponse, error) {
+	// Truyền cả userID và testID vào repo
+	attempts, err := s.attemptRepo.FindAllWithQuestions(userID, testID)
 	if err != nil {
 		return nil, err
 	}

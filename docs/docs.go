@@ -26,14 +26,28 @@ const docTemplate = `{
     "paths": {
         "/attempts": {
             "get": {
-                "description": "Retrieve all submitted attempts with their questions and AI feedback",
+                "description": "Retrieve submitted attempts. Use 'user_id' and/or 'test_id' query params to filter.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "attempts"
                 ],
-                "summary": "Get all attempts (history)",
+                "summary": "Get all attempts (history), optionally filtered by user_id and/or test_id",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Filter attempts by User ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter attempts by Test ID (shows attempts for questions within this test)",
+                        "name": "test_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -42,6 +56,12 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/dto.AttemptResponse"
                             }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid user_id or test_id format",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "500": {
@@ -682,6 +702,9 @@ const docTemplate = `{
                 },
                 "user_answer": {
                     "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
                 }
             }
         },
@@ -849,6 +872,9 @@ const docTemplate = `{
                 },
                 "user_answer": {
                     "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
                 }
             }
         },

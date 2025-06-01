@@ -477,15 +477,49 @@ func (ctrl *Controller) SubmitAttemptHandler(c *gin.Context) {
 }
 
 // GetAllAttemptsHandler godoc
-// @Summary Get all attempts (history)
-// @Description Retrieve all submitted attempts with their questions and AI feedback
+// @Summary Get all attempts (history), optionally filtered by user_id and/or test_id
+// @Description Retrieve submitted attempts. Use 'user_id' and/or 'test_id' query params to filter.
 // @Tags attempts
 // @Produce json
+// @Param user_id query int false "Filter attempts by User ID"
+// @Param test_id query int false "Filter attempts by Test ID (shows attempts for questions within this test)"
 // @Success 200 {array} dto.AttemptResponse
+// @Failure 400 {object} dto.ErrorResponse "Invalid user_id or test_id format"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /attempts [get]
 func (ctrl *Controller) GetAllAttemptsHandler(c *gin.Context) {
-	attempts, err := ctrl.attemptSvc.GetAllAttempts()
+	var userID *uint
+	userIDStr := c.Query("user_id")
+	if userIDStr != "" {
+		val, err := strconv.ParseUint(userIDStr, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid user_id format"})
+			return
+		}
+		parsedUserID := uint(val)
+		userID = &parsedUserID
+		log.Info().Uint("userID", *userID).Msg("Filtering attempts by UserID.")
+	}
+
+	var testID *uint
+	testIDStr := c.Query("test_id")
+	if testIDStr != "" {
+		val, err := strconv.ParseUint(testIDStr, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid test_id format"})
+			return
+		}
+		parsedTestID := uint(val)
+		testID = &parsedTestID
+		log.Info().Uint("testID", parsedTestID).Msg("Filtering attempts by TestID.")
+	}
+
+	if userID == nil && testID == nil {
+		log.Info().Msg("Fetching all attempts (no user_id or test_id filter).")
+	}
+
+	// Truyền cả userID (có thể là nil) và testID (có thể là nil) vào service
+	attempts, err := ctrl.attemptSvc.GetAllAttempts(userID, testID)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get all attempts")
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to retrieve attempts history"})

@@ -16,6 +16,8 @@ definitions:
         type: string
       user_answer:
         type: string
+      user_id:
+        type: integer
     type: object
   dto.CreateQuestionRequest:
     properties:
@@ -129,6 +131,8 @@ definitions:
         type: integer
       user_answer:
         type: string
+      user_id:
+        type: integer
     required:
     - question_id
     - user_answer
@@ -168,7 +172,18 @@ info:
 paths:
   /attempts:
     get:
-      description: Retrieve all submitted attempts with their questions and AI feedback
+      description: Retrieve submitted attempts. Use 'user_id' and/or 'test_id' query
+        params to filter.
+      parameters:
+      - description: Filter attempts by User ID
+        in: query
+        name: user_id
+        type: integer
+      - description: Filter attempts by Test ID (shows attempts for questions within
+          this test)
+        in: query
+        name: test_id
+        type: integer
       produces:
       - application/json
       responses:
@@ -178,11 +193,15 @@ paths:
             items:
               $ref: '#/definitions/dto.AttemptResponse'
             type: array
+        "400":
+          description: Invalid user_id or test_id format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
         "500":
           description: Internal server error
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
-      summary: Get all attempts (history)
+      summary: Get all attempts (history), optionally filtered by user_id and/or test_id
       tags:
       - attempts
     post:

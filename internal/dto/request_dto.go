@@ -33,6 +33,7 @@ type CreateTestRequest struct {
 }
 
 type SubmitAttemptRequest struct {
+	UserID     *uint  `json:"user_id"`
 	QuestionID uint   `json:"question_id" binding:"required"`
 	UserAnswer string `json:"user_answer" binding:"required"`
 }

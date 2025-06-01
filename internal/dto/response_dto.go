@@ -27,6 +27,7 @@ type TestResponse struct {
 
 type AttemptResponse struct {
 	ID          uint             `json:"id"`
+	UserID      *uint            `json:"user_id,omitempty"`
 	QuestionID  uint             `json:"question_id"`
 	Question    QuestionResponse `json:"question,omitempty"`
 	UserAnswer  string           `json:"user_answer"`
