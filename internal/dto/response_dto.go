@@ -84,3 +84,35 @@ type TestAttemptsResponse struct {
 	Attempts   []AttemptResponse `json:"attempts"`
 	SubmittedAt *time.Time       `json:"submitted_at,omitempty"`
 }
+
+// TestAttemptsListItem represents a single attempt in the list of attempts for a test
+type TestAttemptsListItem struct {
+	AttemptID   uint       `json:"attempt_id"`
+	UserID      *uint      `json:"user_id,omitempty"`
+	Username    string     `json:"username,omitempty"`
+	SubmittedAt time.Time  `json:"submitted_at"`
+	Score       *int       `json:"score,omitempty"`
+	TotalQuestions int     `json:"total_questions"`
+	CompletedQuestions int `json:"completed_questions"`
+}
+
+// TestAttemptsListResponse is the response for fetching a list of attempts for a specific test
+type TestAttemptsListResponse struct {
+	TestID      uint                  `json:"test_id"`
+	TestTitle   string                `json:"test_title"`
+	Attempts    []TestAttemptsListItem `json:"attempts"`
+	TotalCount  int                   `json:"total_count"`
+}
+
+// TestAttemptDetailResponse is the response for fetching details of a specific test attempt
+type TestAttemptDetailResponse struct {
+	AttemptID        uint                        `json:"attempt_id"`
+	TestID           uint                        `json:"test_id"`
+	TestTitle        string                      `json:"test_title"`
+	UserID           *uint                       `json:"user_id,omitempty"`
+	Username         string                      `json:"username,omitempty"`
+	SubmittedAt      time.Time                   `json:"submitted_at"`
+	Score            *int                        `json:"score,omitempty"`
+	TotalQuestions   int                         `json:"total_questions"`
+	QuestionsHistory []QuestionAttemptHistoryDTO `json:"questions_history"`
+}

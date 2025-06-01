@@ -22,6 +22,8 @@ type TestService interface {
 	GetTestAttemptHistory(testID uint, userID *uint) (*dto.TestAttemptHistoryResponseDTO, error)
 	GetCompletedTestsByUser(userID *uint) ([]dto.TestResponse, error)
 	GetTestAttemptsByUser(testID uint, userID *uint) (*dto.TestAttemptsResponse, error)
+	GetTestAttemptsList(testID uint) (*dto.TestAttemptsListResponse, error)
+	GetTestAttemptDetail(testID uint, attemptID uint) (*dto.TestAttemptDetailResponse, error)
 }
 
 type testService struct {
@@ -351,5 +353,207 @@ func (s *testService) GetTestAttemptsByUser(testID uint, userID *uint) (*dto.Tes
 		UserID:      userID,
 		Attempts:    attemptResponses,
 		SubmittedAt: latestSubmitTime,
+	}, nil
+}
+
+// GetTestAttemptsList retrieves a list of all attempts for a specific test with basic information
+func (s *testService) GetTestAttemptsList(testID uint) (*dto.TestAttemptsListResponse, error) {
+	// Get the test information
+	test, err := s.testRepo.FindByIDWithQuestions(testID)
+	if err != nil {
+		log.Error().Err(err).Uint("testID", testID).Msg("Failed to find test for attempt list")
+		return nil, fmt.Errorf("test with ID %d not found: %w", testID, err)
+	}
+
+	// Get all attempts for this test
+	// We need to get all attempts for all questions in this test
+	var questionIDs []uint
+	for _, q := range test.Questions {
+		questionIDs = append(questionIDs, q.ID)
+	}
+
+	if len(questionIDs) == 0 {
+		// Test has no questions
+		return &dto.TestAttemptsListResponse{
+			TestID:     test.ID,
+			TestTitle:  test.Title,
+			Attempts:   []dto.TestAttemptsListItem{},
+			TotalCount: 0,
+		}, nil
+	}
+
+	// Get all attempts for these questions
+	// For now, we'll get all attempts for the test without filtering by user
+	attempts, err := s.attemptRepo.FindAllWithQuestions(nil, &testID)
+	if err != nil {
+		log.Error().Err(err).Uint("testID", testID).Msg("Failed to fetch attempts for test list")
+		return nil, fmt.Errorf("could not fetch attempts for test list: %w", err)
+	}
+
+	// Group attempts by user and submission time to create a list of test attempts
+	// We'll use a map to track unique attempts by user and approximate submission time
+	attemptsByUserAndTime := make(map[string][]model.Attempt)
+	for _, attempt := range attempts {
+		if attempt.UserID == nil {
+			continue // Skip attempts without a user ID
+		}
+		
+		// Create a key using user ID and rounded submission time (to group attempts made close together)
+		// This is a simple approach - a more robust solution would track test sessions
+		roundedTime := attempt.SubmittedAt.Truncate(5 * time.Minute) // Group attempts within 5 minutes
+		key := fmt.Sprintf("%d-%s", *attempt.UserID, roundedTime.Format(time.RFC3339))
+		attemptsByUserAndTime[key] = append(attemptsByUserAndTime[key], attempt)
+	}
+
+	// Create the response items
+	var attemptItems []dto.TestAttemptsListItem
+	for _, userAttempts := range attemptsByUserAndTime {
+		if len(userAttempts) == 0 {
+			continue
+		}
+		
+		// Use the first attempt to get user info and the latest for submission time
+		firstAttempt := userAttempts[0]
+		latestTime := firstAttempt.SubmittedAt
+		latestAttemptID := firstAttempt.ID
+		
+		for _, attempt := range userAttempts {
+			if attempt.SubmittedAt.After(latestTime) {
+				latestTime = attempt.SubmittedAt
+				latestAttemptID = attempt.ID
+			}
+		}
+		
+		// Calculate score and completion metrics
+		// In a real implementation, you might have a more sophisticated scoring system
+		completedQuestions := len(userAttempts)
+		totalQuestions := len(test.Questions)
+		
+		// For now, we'll use a simple score calculation
+		// In a real app, you might have a more complex scoring system
+		score := (completedQuestions * 100) / totalQuestions
+		
+		attemptItems = append(attemptItems, dto.TestAttemptsListItem{
+			AttemptID:          latestAttemptID,
+			UserID:             firstAttempt.UserID,
+			Username:           "User", // In a real app, you would fetch the username
+			SubmittedAt:        latestTime,
+			Score:              &score,
+			TotalQuestions:     totalQuestions,
+			CompletedQuestions: completedQuestions,
+		})
+	}
+
+	return &dto.TestAttemptsListResponse{
+		TestID:     test.ID,
+		TestTitle:  test.Title,
+		Attempts:   attemptItems,
+		TotalCount: len(attemptItems),
+	}, nil
+}
+
+// GetTestAttemptDetail retrieves detailed information about a specific test attempt
+func (s *testService) GetTestAttemptDetail(testID uint, attemptID uint) (*dto.TestAttemptDetailResponse, error) {
+	// Get the test information
+	test, err := s.testRepo.FindByIDWithQuestions(testID)
+	if err != nil {
+		log.Error().Err(err).Uint("testID", testID).Msg("Failed to find test for attempt detail")
+		return nil, fmt.Errorf("test with ID %d not found: %w", testID, err)
+	}
+
+	// Get the specific attempt
+	attempt, err := s.attemptRepo.FindByID(attemptID)
+	if err != nil {
+		log.Error().Err(err).Uint("attemptID", attemptID).Msg("Failed to find attempt")
+		return nil, fmt.Errorf("attempt with ID %d not found: %w", attemptID, err)
+	}
+
+	// Verify that this attempt belongs to a question in this test
+	questionBelongsToTest := false
+	for _, q := range test.Questions {
+		if q.ID == attempt.QuestionID {
+			questionBelongsToTest = true
+			break
+		}
+	}
+
+	if !questionBelongsToTest {
+		return nil, fmt.Errorf("attempt %d does not belong to test %d", attemptID, testID)
+	}
+
+	// Get all attempts for this test by the same user
+	var userID *uint
+	if attempt.UserID != nil {
+		userID = attempt.UserID
+	}
+
+	userAttemptsForTest, err := s.attemptRepo.FindAllWithQuestions(userID, &testID)
+	if err != nil {
+		log.Error().Err(err).Uint("testID", testID).Interface("userID", userID).Msg("Failed to fetch attempts for test detail")
+		return nil, fmt.Errorf("could not fetch attempts for test detail: %w", err)
+	}
+
+	// Group attempts by question
+	attemptsByQuestionID := make(map[uint][]model.Attempt)
+	for _, a := range userAttemptsForTest {
+		attemptsByQuestionID[a.QuestionID] = append(attemptsByQuestionID[a.QuestionID], a)
+	}
+
+	// Build the questions history
+	var questionsHistory []dto.QuestionAttemptHistoryDTO
+	for _, question := range test.Questions {
+		qHistory := dto.QuestionAttemptHistoryDTO{
+			QuestionID:    question.ID,
+			QuestionTitle: question.Title,
+			QuestionType:  question.Type,
+			OrderInTest:   question.OrderInTest,
+			Prompt:        question.Prompt,
+			ImageURL:      question.ImageURL,
+			GivenWord1:    question.GivenWord1,
+			GivenWord2:    question.GivenWord2,
+			Attempts:      []dto.AttemptInfoDTO{},
+		}
+
+		if userAttempts, found := attemptsByQuestionID[question.ID]; found {
+			for _, a := range userAttempts {
+				qHistory.Attempts = append(qHistory.Attempts, dto.AttemptInfoDTO{
+					AttemptID:   a.ID,
+					UserAnswer:  a.UserAnswer,
+					AIFeedback:  a.AIFeedback,
+					SubmittedAt: a.SubmittedAt,
+				})
+			}
+		}
+
+		questionsHistory = append(questionsHistory, qHistory)
+	}
+
+	// Calculate score (simple implementation)
+	totalQuestions := len(test.Questions)
+	completedQuestions := 0
+	for _, qHistory := range questionsHistory {
+		if len(qHistory.Attempts) > 0 {
+			completedQuestions++
+		}
+	}
+
+	score := (completedQuestions * 100) / totalQuestions
+
+	// Get username (in a real app, you would fetch this from a user service)
+	username := "User"
+	if attempt.UserID != nil {
+		username = fmt.Sprintf("User %d", *attempt.UserID)
+	}
+
+	return &dto.TestAttemptDetailResponse{
+		AttemptID:        attemptID,
+		TestID:           test.ID,
+		TestTitle:        test.Title,
+		UserID:           attempt.UserID,
+		Username:         username,
+		SubmittedAt:      attempt.SubmittedAt,
+		Score:            &score,
+		TotalQuestions:   totalQuestions,
+		QuestionsHistory: questionsHistory,
 	}, nil
 }

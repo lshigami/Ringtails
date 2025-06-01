@@ -214,6 +214,29 @@ definitions:
       user_id:
         type: integer
     type: object
+  dto.TestAttemptDetailResponse:
+    properties:
+      attempt_id:
+        type: integer
+      questions_history:
+        items:
+          $ref: '#/definitions/dto.QuestionAttemptHistoryDTO'
+        type: array
+      score:
+        type: integer
+      submitted_at:
+        type: string
+      test_id:
+        type: integer
+      test_title:
+        type: string
+      total_questions:
+        type: integer
+      user_id:
+        type: integer
+      username:
+        type: string
+    type: object
   dto.TestAttemptHistoryResponseDTO:
     properties:
       questions_history:
@@ -225,6 +248,36 @@ definitions:
       test_title:
         type: string
       user_id:
+        type: integer
+    type: object
+  dto.TestAttemptsListItem:
+    properties:
+      attempt_id:
+        type: integer
+      completed_questions:
+        type: integer
+      score:
+        type: integer
+      submitted_at:
+        type: string
+      total_questions:
+        type: integer
+      user_id:
+        type: integer
+      username:
+        type: string
+    type: object
+  dto.TestAttemptsListResponse:
+    properties:
+      attempts:
+        items:
+          $ref: '#/definitions/dto.TestAttemptsListItem'
+        type: array
+      test_id:
+        type: integer
+      test_title:
+        type: string
+      total_count:
         type: integer
     type: object
   dto.TestAttemptsResponse:
@@ -588,6 +641,79 @@ paths:
       summary: Get all attempts for a specific test by a user
       tags:
       - tests
+  /result/{test_id}/attempt/{attempt_id}:
+    get:
+      consumes:
+      - application/json
+      description: Returns detailed information about a specific test attempt including
+        all questions and answers
+      parameters:
+      - description: Test ID
+        in: path
+        name: test_id
+        required: true
+        type: integer
+      - description: Attempt ID
+        in: path
+        name: attempt_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TestAttemptDetailResponse'
+        "400":
+          description: Invalid ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Test or attempt not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get details of a specific test attempt
+      tags:
+      - result
+  /result/{test_id}/attempts:
+    get:
+      consumes:
+      - application/json
+      description: Returns a list of all attempts for a specific test with basic information
+        like date, user, score
+      parameters:
+      - description: Test ID
+        in: path
+        name: test_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.TestAttemptsListResponse'
+        "400":
+          description: Invalid Test ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Test not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Get list of attempts for a test
+      tags:
+      - result
   /tests:
     get:
       description: Retrieve all TOEIC writing tests. Use 'with_questions=true' query

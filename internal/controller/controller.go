@@ -57,13 +57,15 @@ func (ctrl *Controller) RegisterRoutes(router *gin.Engine) {
 		attempts.GET("", ctrl.GetAllAttemptsHandler)
 		attempts.GET("/:id", ctrl.GetAttemptHandler)
 		tests.POST("/:id/submit", ctrl.SubmitFullTestHandler)
-		
+
 		// New routes for test results
 		done := apiV1.Group("/done")
 		done.GET("/:user_id", ctrl.GetCompletedTestsByUserHandler) // Get all completed tests for a user
-		
+
 		result := apiV1.Group("/result")
-		result.GET("/:test_id/:user_id", ctrl.GetTestAttemptsByUserHandler) // Get all attempts for a specific test by user
+		result.GET("/:test_id/:user_id", ctrl.GetTestAttemptsByUserHandler)           // Get all attempts for a specific test by user
+		result.GET("/:test_id/attempts", ctrl.GetTestAttemptsListHandler)             // Get list of attempts for a test
+		result.GET("/:test_id/attempt/:attempt_id", ctrl.GetTestAttemptDetailHandler) // Get details of a specific attempt
 	}
 }
 
@@ -757,4 +759,86 @@ func (ctrl *Controller) GetTestAttemptsByUserHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, attempts)
+}
+
+// GetTestAttemptsListHandler returns a list of attempts for a specific test with basic information
+// GetTestAttemptsListHandler godoc
+// @Summary Get list of attempts for a test
+// @Description Returns a list of all attempts for a specific test with basic information like date, user, score
+// @Tags result
+// @Accept json
+// @Produce json
+// @Param test_id path int true "Test ID"
+// @Success 200 {object} dto.TestAttemptsListResponse
+// @Failure 400 {object} dto.ErrorResponse "Invalid Test ID format"
+// @Failure 404 {object} dto.ErrorResponse "Test not found"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /result/{test_id}/attempts [get]
+func (ctrl *Controller) GetTestAttemptsListHandler(c *gin.Context) {
+	testIDStr := c.Param("test_id")
+	testID, err := strconv.ParseUint(testIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid Test ID format"})
+		return
+	}
+
+	// Get query parameters for pagination if needed
+	// limit := c.DefaultQuery("limit", "20")
+	// offset := c.DefaultQuery("offset", "0")
+
+	attemptsList, err := ctrl.testSvc.GetTestAttemptsList(uint(testID))
+	if err != nil {
+		if _, ok := err.(interface{ NotFound() }); ok {
+			c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: err.Error()})
+		} else {
+			log.Error().Err(err).Uint("testID", uint(testID)).Msg("Failed to retrieve test attempts list")
+			c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to retrieve test attempts list: " + err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, attemptsList)
+}
+
+// GetTestAttemptDetailHandler returns detailed information about a specific test attempt
+// GetTestAttemptDetailHandler godoc
+// @Summary Get details of a specific test attempt
+// @Description Returns detailed information about a specific test attempt including all questions and answers
+// @Tags result
+// @Accept json
+// @Produce json
+// @Param test_id path int true "Test ID"
+// @Param attempt_id path int true "Attempt ID"
+// @Success 200 {object} dto.TestAttemptDetailResponse
+// @Failure 400 {object} dto.ErrorResponse "Invalid ID format"
+// @Failure 404 {object} dto.ErrorResponse "Test or attempt not found"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /result/{test_id}/attempt/{attempt_id} [get]
+func (ctrl *Controller) GetTestAttemptDetailHandler(c *gin.Context) {
+	testIDStr := c.Param("test_id")
+	testID, err := strconv.ParseUint(testIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid Test ID format"})
+		return
+	}
+
+	attemptIDStr := c.Param("attempt_id")
+	attemptID, err := strconv.ParseUint(attemptIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid Attempt ID format"})
+		return
+	}
+
+	attemptDetail, err := ctrl.testSvc.GetTestAttemptDetail(uint(testID), uint(attemptID))
+	if err != nil {
+		if _, ok := err.(interface{ NotFound() }); ok {
+			c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: err.Error()})
+		} else {
+			log.Error().Err(err).Uint("testID", uint(testID)).Uint("attemptID", uint(attemptID)).Msg("Failed to retrieve test attempt detail")
+			c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to retrieve test attempt detail: " + err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, attemptDetail)
 }
