@@ -17,10 +17,19 @@ type UserTestService interface {
 type userTestService struct {
 	testRepo        repository.TestRepository
 	testAttemptRepo repository.TestAttemptRepository
+	scoreConverter  ScoreConverterService
 }
 
-func NewUserTestService(testRepo repository.TestRepository, testAttemptRepo repository.TestAttemptRepository) UserTestService {
-	return &userTestService{testRepo: testRepo, testAttemptRepo: testAttemptRepo}
+func NewUserTestService(
+	testRepo repository.TestRepository,
+	testAttemptRepo repository.TestAttemptRepository,
+	scoreConverter ScoreConverterService, // Inject
+) UserTestService {
+	return &userTestService{
+		testRepo:        testRepo,
+		testAttemptRepo: testAttemptRepo,
+		scoreConverter:  scoreConverter, // Gán
+	}
 }
 
 func (s *userTestService) GetAllTests(requestingUserID *uint) ([]dto.TestSummaryDTO, error) {
@@ -41,32 +50,25 @@ func (s *userTestService) GetAllTests(requestingUserID *uint) ([]dto.TestSummary
 		}
 
 		if requestingUserID != nil {
-			// Kiểm tra xem user này đã làm bài test này chưa
-			// exists, errExists := s.testAttemptRepo.ExistsByUserAndTest(*requestingUserID, twc.Test.ID)
-			// if errExists != nil {
-			// 	log.Error().Err(errExists).Uint("userID", *requestingUserID).Uint("testID", twc.Test.ID).Msg("Error checking test attempt existence")
-			// 	// Quyết định: bỏ qua lỗi này hay trả về lỗi tổng? Hiện tại bỏ qua, has_attempted sẽ là nil/false
-			// 	// summary.HasAttemptedByUser = nil // Hoặc false tùy theo logic bạn muốn khi có lỗi
-			// } else {
-			// 	summary.HasAttemptedByUser = &exists
-			// }
-
-			// Lấy thông tin attempt gần nhất
 			latestAttempt, errLatest := s.testAttemptRepo.FindLatestByTestAndUser(twc.Test.ID, *requestingUserID)
 			if errLatest != nil {
-				log.Error().Err(errLatest).Uint("userID", *requestingUserID).Uint("testID", twc.Test.ID).Msg("Error fetching latest test attempt")
-				// Không set các trường này nếu có lỗi
+				log.Error().Err(errLatest).Uint("userID", *requestingUserID).Uint("testID", twc.Test.ID).Msg("Error fetching latest test attempt for summary")
 			} else if latestAttempt != nil {
 				hasAttempted := true
 				summary.HasAttemptedByUser = &hasAttempted
 				summary.LastAttemptStatus = &latestAttempt.Status
 				if latestAttempt.TotalScore != nil {
-					summary.LastAttemptScore = latestAttempt.TotalScore
+					summary.LastAttemptRawScore = latestAttempt.TotalScore
+					scaledScore, errScale := s.scoreConverter.ConvertToScaledScore(*latestAttempt.TotalScore)
+					if errScale != nil {
+						log.Warn().Err(errScale).Float64("rawScore", *latestAttempt.TotalScore).Msg("Failed to scale score for test summary")
+					} else {
+						summary.LastAttemptScaledScore = &scaledScore
+					}
 				}
-			} else { // No attempt found for this user and test
+			} else {
 				hasAttempted := false
 				summary.HasAttemptedByUser = &hasAttempted
-				// LastAttemptStatus and LastAttemptScore sẽ là nil (mặc định cho con trỏ)
 			}
 		}
 		dtos = append(dtos, summary)

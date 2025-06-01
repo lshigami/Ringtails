@@ -58,11 +58,22 @@ func main() {
 		// Services Layer
 		fx.Provide(
 			service.NewAdminTestService,
-			func(testRepo repository.TestRepository, attemptRepo repository.TestAttemptRepository) service.UserTestService {
-				return service.NewUserTestService(testRepo, attemptRepo)
+			func(testRepo repository.TestRepository, attemptRepo repository.TestAttemptRepository, sc service.ScoreConverterService) service.UserTestService {
+				return service.NewUserTestService(testRepo, attemptRepo, sc)
 			},
 			service.NewGeminiLLMService, // Renamed Gemini service
-			service.NewTestSubmissionService,
+			func(
+				testRepo repository.TestRepository,
+				questionRepo repository.QuestionRepository,
+				testAttemptRepo repository.TestAttemptRepository,
+				answerRepo repository.AnswerRepository,
+				geminiService service.GeminiLLMService,
+				sc service.ScoreConverterService, // Thêm ScoreConverterService
+				db *gorm.DB,
+			) service.TestSubmissionService {
+				return service.NewTestSubmissionService(testRepo, questionRepo, testAttemptRepo, answerRepo, geminiService, sc, db)
+			},
+			service.NewScoreConverterService,
 		),
 
 		// API Controllers Layer

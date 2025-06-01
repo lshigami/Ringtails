@@ -123,7 +123,7 @@ func (c *UserTestController) SubmitTestAttempt(ctx *gin.Context) {
 	log.Info().Uint64("testID", testID).Interface("userID", req.UserID).Int("answerCount", len(req.Answers)).Msg("Received request to submit test attempt")
 
 	// Pass the main DB instance from controller to service method for transaction management
-	attemptDetail, err := c.testSubmissionService.SubmitTest(uint(testID), req, c.db)
+	attemptDetail, err := c.testSubmissionService.SubmitTest(uint(testID), req)
 	if err != nil {
 		log.Error().Err(err).Uint64("testID", testID).Msg("User SubmitTestAttempt: Service error")
 		// Differentiate errors: e.g., test not found vs. internal server error

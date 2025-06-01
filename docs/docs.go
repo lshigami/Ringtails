@@ -451,6 +451,10 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "scaled_score": {
+                    "description": "Điểm đã quy đổi",
+                    "type": "number"
+                },
                 "status": {
                     "type": "string"
                 },
@@ -463,7 +467,8 @@ const docTemplate = `{
                 "test_title": {
                     "type": "string"
                 },
-                "total_score": {
+                "total_raw_score": {
+                    "description": "Điểm thô",
                     "type": "number"
                 },
                 "user_id": {
@@ -495,6 +500,10 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "scaled_score": {
+                    "description": "Điểm đã quy đổi",
+                    "type": "number"
+                },
                 "status": {
                     "type": "string"
                 },
@@ -504,7 +513,8 @@ const docTemplate = `{
                 "test_id": {
                     "type": "integer"
                 },
-                "total_score": {
+                "total_raw_score": {
+                    "description": "Điểm thô",
                     "type": "number"
                 },
                 "user_id": {
@@ -568,18 +578,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "has_attempted_by_user": {
-                    "description": "True if the specified user has at least one attempt for this test. Omit if no user_id provided.",
                     "type": "boolean"
                 },
                 "id": {
                     "type": "integer"
                 },
-                "last_attempt_score": {
-                    "description": "Score of the user's most recent attempt, if any.",
+                "last_attempt_raw_score": {
+                    "description": "Đổi tên TotalScore thành RawScore",
+                    "type": "number"
+                },
+                "last_attempt_scaled_score": {
+                    "description": "Thêm điểm quy đổi",
                     "type": "number"
                 },
                 "last_attempt_status": {
-                    "description": "Status of the user's most recent attempt, if any.",
                     "type": "string"
                 },
                 "question_count": {

@@ -27,14 +27,15 @@ type TestResponseDTO struct {
 
 // TestSummaryDTO is used for listing tests available to users.
 type TestSummaryDTO struct {
-	ID                 uint      `json:"id"`
-	Title              string    `json:"title"`
-	Description        string    `json:"description,omitempty"`
-	QuestionCount      int       `json:"question_count"`
-	CreatedAt          time.Time `json:"created_at"`
-	HasAttemptedByUser *bool     `json:"has_attempted_by_user,omitempty"` // True if the specified user has at least one attempt for this test. Omit if no user_id provided.
-	LastAttemptStatus  *string   `json:"last_attempt_status,omitempty"`   // Status of the user's most recent attempt, if any.
-	LastAttemptScore   *float64  `json:"last_attempt_score,omitempty"`    // Score of the user's most recent attempt, if any.
+	ID                     uint      `json:"id"`
+	Title                  string    `json:"title"`
+	Description            string    `json:"description,omitempty"`
+	QuestionCount          int       `json:"question_count"`
+	CreatedAt              time.Time `json:"created_at"`
+	HasAttemptedByUser     *bool     `json:"has_attempted_by_user,omitempty"`
+	LastAttemptStatus      *string   `json:"last_attempt_status,omitempty"`
+	LastAttemptRawScore    *float64  `json:"last_attempt_raw_score,omitempty"`    // Đổi tên TotalScore thành RawScore
+	LastAttemptScaledScore *float64  `json:"last_attempt_scaled_score,omitempty"` // Thêm điểm quy đổi
 }
 
 // --- DTOs for Test Attempts (User submitting and viewing attempts) ---
@@ -63,22 +64,24 @@ type AnswerResponseDTO struct {
 
 // TestAttemptDetailDTO is for displaying the full details of a specific test attempt.
 type TestAttemptDetailDTO struct {
-	ID          uint                `json:"id"`
-	TestID      uint                `json:"test_id"`
-	TestTitle   string              `json:"test_title,omitempty"`
-	UserID      *uint               `json:"user_id,omitempty"`
-	SubmittedAt time.Time           `json:"submitted_at"`
-	TotalScore  *float64            `json:"total_score,omitempty"`
-	Status      string              `json:"status"`
-	Answers     []AnswerResponseDTO `json:"answers,omitempty"` // List of answers with their details
+	ID            uint                `json:"id"`
+	TestID        uint                `json:"test_id"`
+	TestTitle     string              `json:"test_title,omitempty"`
+	UserID        *uint               `json:"user_id,omitempty"`
+	SubmittedAt   time.Time           `json:"submitted_at"`
+	TotalRawScore *float64            `json:"total_raw_score,omitempty"` // Điểm thô
+	ScaledScore   *float64            `json:"scaled_score,omitempty"`    // Điểm đã quy đổi
+	Status        string              `json:"status"`
+	Answers       []AnswerResponseDTO `json:"answers,omitempty"` // List of answers with their details
 }
 
 // TestAttemptSummaryDTO is for listing a user's attempts for a particular test.
 type TestAttemptSummaryDTO struct {
-	ID          uint      `json:"id"`
-	TestID      uint      `json:"test_id"`
-	UserID      *uint     `json:"user_id,omitempty"`
-	SubmittedAt time.Time `json:"submitted_at"`
-	TotalScore  *float64  `json:"total_score,omitempty"`
-	Status      string    `json:"status"`
+	ID            uint      `json:"id"`
+	TestID        uint      `json:"test_id"`
+	UserID        *uint     `json:"user_id,omitempty"`
+	SubmittedAt   time.Time `json:"submitted_at"`
+	TotalRawScore *float64  `json:"total_raw_score,omitempty"` // Điểm thô
+	ScaledScore   *float64  `json:"scaled_score,omitempty"`    // Điểm đã quy đổi
+	Status        string    `json:"status"`
 }
