@@ -38,12 +38,13 @@ func NewGeminiLLMService(cfg *config.Config) (GeminiLLMService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Gemini client: %w", err)
 	}
-	model := client.GenerativeModel("gemini-1.5-flash") // Or your preferred vision model
+	model := client.GenerativeModel("gemini-1.5-flash")
 	return &geminiLLMService{client: model, cfg: cfg}, nil
 }
 
-// fetchImageData (giữ nguyên từ phiên bản trước)
+// fetchImageData (giữ nguyên)
 func fetchImageData(imageURL string) ([]byte, string, error) {
+	// ... (Code từ phản hồi trước)
 	if imageURL == "" {
 		return nil, "", fmt.Errorf("image URL is empty")
 	}
@@ -88,8 +89,9 @@ func fetchImageData(imageURL string) ([]byte, string, error) {
 	return imageData, mimeType, nil
 }
 
-// parseScoreAndFeedback (giữ nguyên từ phiên bản trước, nhưng có thể cần điều chỉnh nếu format output của LLM thay đổi)
+// parseScoreAndFeedback (giữ nguyên)
 func parseScoreAndFeedback(rawResponse string) (scoreStr string, feedbackStr string, err error) {
+	// ... (Code từ phản hồi trước)
 	scorePrefix := "Score:"
 	feedbackPrefix := "Feedback:"
 
@@ -112,23 +114,20 @@ func parseScoreAndFeedback(rawResponse string) (scoreStr string, feedbackStr str
 	} else {
 		if endOfScoreLine != -1 && len(rawResponse) > scoreIndex+endOfScoreLine+1 {
 			feedbackStr = strings.TrimSpace(rawResponse[scoreIndex+endOfScoreLine+1:])
-			if strings.HasPrefix(strings.ToLower(feedbackStr), "feedback:") { // Handle case "Feedback: Feedback: ..."
+			if strings.HasPrefix(strings.ToLower(feedbackStr), "feedback:") {
 				feedbackStr = strings.TrimSpace(feedbackStr[len(feedbackPrefix):])
 			}
 		} else {
 			feedbackStr = "Feedback not found in the expected format after the score."
 		}
 	}
-	// Ensure scoreStr only contains the number
 	parts := strings.Fields(scoreStr)
 	if len(parts) > 0 {
-		scoreStr = parts[0] // Take the first part assuming it's the number
+		scoreStr = parts[0]
 	}
-
 	return scoreStr, feedbackStr, nil
 }
 
-// ScoreAndFeedbackAnswer cập nhật với prompt chi tiết hơn
 func (s *geminiLLMService) ScoreAndFeedbackAnswer(question *model.Question, userAnswer string) (string, float64, error) {
 	if s.client == nil {
 		return "AI Service is unavailable (client not initialized).", 0.0, fmt.Errorf("gemini client not initialized")
@@ -136,24 +135,26 @@ func (s *geminiLLMService) ScoreAndFeedbackAnswer(question *model.Question, user
 
 	ctx := context.Background()
 	var parts []genai.Part
-	maxScore := question.MaxScore
+	maxScore := question.MaxScore // Sử dụng MaxScore từ DB
+
+	// Nếu MaxScore từ DB không hợp lệ (ví dụ 0), thì mới fallback
 	if maxScore <= 0 {
-		switch question.Type {
-		case "sentence_picture":
+		switch question.OrderInTest {
+		case 1, 2, 3, 4, 5: // Part 1
 			maxScore = 3.0
-		case "email_response":
+		case 6, 7: // Part 2
 			maxScore = 4.0
-		case "opinion_essay":
+		case 8: // Part 3
 			maxScore = 5.0
 		default:
-			maxScore = 3.0
+			log.Error().Uint("questionID", question.ID).Int("orderInTest", question.OrderInTest).Msg("Invalid OrderInTest for question, cannot determine MaxScore.")
+			return "Internal error: Cannot determine max score for question.", 0.0, fmt.Errorf("invalid orderInTest %d for question ID %d", question.OrderInTest, question.ID)
 		}
-		log.Warn().Uint("questionID", question.ID).Float64("fallbackMaxScore", maxScore).Msg("Question MaxScore is invalid or not set, using type-based fallback.")
+		log.Warn().Uint("questionID", question.ID).Float64("dbMaxScore", question.MaxScore).Float64("fallbackMaxScore", maxScore).Msg("Question MaxScore from DB is invalid, using OrderInTest-based fallback.")
 	}
 
-	// Hướng dẫn chung cho format output của LLM
 	outputFormatInstruction := fmt.Sprintf(`
-Please provide your evaluation in two distinct parts:
+Please provide your evaluation in three distinct parts:
 1. Score: A numerical score for the answer, from 0.0 to %.1f (e.g., 2.5, 3.0). The score should reflect the overall quality based on all criteria.
 2. Feedback: Detailed, constructive feedback. Specifically:
     - Identify strong points of the response.
@@ -162,11 +163,20 @@ Please provide your evaluation in two distinct parts:
     - Provide a concrete example of how to correct the error or improve the sentence/section.
     - If appropriate, suggest alternative phrasing or vocabulary.
     - Offer general advice for improvement related to the identified weaknesses.
+3. Revised Answer (For Essays - Question 8 ONLY): If this is an essay (Question 8), provide a revised version of the entire essay that incorporates your feedback and corrections, aiming for a high score. For other question types, this part can be omitted or state "N/A".
+4. Relevant Vocabulary (For Essays - Question 8 ONLY): If this is an essay (Question 8), list 5-7 relevant English vocabulary words or phrases that could enhance the essay, along with their Vietnamese definitions. For other question types, this part can be omitted or state "N/A".
+
 
 Format your response strictly as:
 Score: [Your Numerical Score Here]
 Feedback:
-[Your Detailed Feedback Here, using bullet points or clear paragraphs for different aspects]
+[Your Detailed Feedback Here]
+Revised Answer:
+[Your Revised Essay Here, or N/A]
+Relevant Vocabulary:
+- [Word 1 (English)]: [Nghĩa tiếng Việt 1]
+- [Word 2 (English)]: [Nghĩa tiếng Việt 2]
+... or N/A
 ---
 `, maxScore)
 
@@ -174,13 +184,16 @@ Feedback:
 	textPromptBuilder.WriteString("You are an expert TOEIC Writing Test instructor with deep knowledge of the TOEIC Writing Test format and scoring criteria.\n")
 	textPromptBuilder.WriteString("Please evaluate the following user's TOEIC writing response.\n\n")
 
+	isEssayQuestion8 := (question.Type == "opinion_essay" && question.OrderInTest == 8)
+
 	switch question.Type {
 	case "sentence_picture":
+		// ... (prompt cho sentence_picture như cũ, nhưng sử dụng outputFormatInstruction đã cập nhật) ...
 		if question.ImageURL != nil && *question.ImageURL != "" {
-			imageData, mimeType, err := fetchImageData(*question.ImageURL)
-			if err != nil {
-				log.Error().Err(err).Str("imageURL", *question.ImageURL).Msg("Failed to fetch image for scoring")
-				return fmt.Sprintf("Error processing image: %s. Cannot score.", err.Error()), 0.0, err
+			imageData, mimeType, errImg := fetchImageData(*question.ImageURL)
+			if errImg != nil {
+				log.Error().Err(errImg).Str("imageURL", *question.ImageURL).Msg("Failed to fetch image for scoring")
+				return fmt.Sprintf("Error processing image: %s. Cannot score.", errImg.Error()), 0.0, errImg
 			}
 			parts = append(parts, genai.ImageData(mimeType, imageData))
 			textPromptBuilder.WriteString("The user was shown the image provided above and ")
@@ -197,7 +210,7 @@ Feedback:
 		textPromptBuilder.WriteString(fmt.Sprintf("given two words/phrases: \"%s\" and \"%s\".\n", word1, word2))
 		textPromptBuilder.WriteString("They were asked to write ONE grammatically correct sentence that describes the picture using both given words/phrases.\n\n")
 		textPromptBuilder.WriteString("Task Prompt (for context):\n")
-		textPromptBuilder.WriteString(question.Prompt) // Thêm prompt của câu hỏi (thường là "Write ONE sentence...")
+		textPromptBuilder.WriteString(question.Prompt)
 		textPromptBuilder.WriteString("\n\nEvaluate the user's sentence based on the following TOEIC scoring criteria:\n")
 		textPromptBuilder.WriteString("- Grammar: Accuracy of the grammatical structure used to form a single, complete sentence.\n")
 		textPromptBuilder.WriteString("- Vocabulary: Appropriate and accurate use of the given words/phrases and any other vocabulary within the sentence.\n")
@@ -205,6 +218,7 @@ Feedback:
 		textPromptBuilder.WriteString("- Task Achievement: Successfully writes ONE sentence that uses both given words/phrases.\n\n")
 
 	case "email_response":
+		// ... (prompt cho email_response như cũ, nhưng sử dụng outputFormatInstruction đã cập nhật) ...
 		textPromptBuilder.WriteString("The user was asked to respond to the following email prompt.\n")
 		textPromptBuilder.WriteString("Email Prompt (Task):\n---\n")
 		textPromptBuilder.WriteString(question.Prompt)
@@ -217,6 +231,7 @@ Feedback:
 		textPromptBuilder.WriteString("- Relevance and Appropriateness: Suitability of tone (e.g., formal, semi-formal) and content for the email context.\n\n")
 
 	case "opinion_essay":
+		// ... (prompt cho opinion_essay như cũ, nhưng sử dụng outputFormatInstruction đã cập nhật) ...
 		textPromptBuilder.WriteString("The user was asked to write an opinion essay based on the following prompt.\n")
 		textPromptBuilder.WriteString("Essay Prompt (Task):\n---\n")
 		textPromptBuilder.WriteString(question.Prompt)
@@ -227,6 +242,10 @@ Feedback:
 		textPromptBuilder.WriteString("- Coherence and Cohesion: Clear thesis statement, logical organization of supporting paragraphs, smooth transitions, and effective use of cohesive devices.\n")
 		textPromptBuilder.WriteString("- Task Achievement: How well the essay develops and supports an opinion in response to the prompt, provides relevant reasons and examples, and meets typical essay structure (introduction, body paragraphs, conclusion).\n")
 		textPromptBuilder.WriteString("- Relevance and Appropriateness: The arguments are relevant to the prompt and the language is appropriate for an opinion essay.\n\n")
+		if isEssayQuestion8 {
+			textPromptBuilder.WriteString("Because this is an essay (Question 8), please ALSO provide a 'Revised Answer' and 'Relevant Vocabulary' section as described in the output format instructions.\n\n")
+		}
+
 	default:
 		return "", 0.0, fmt.Errorf("unsupported question type for scoring: %s", question.Type)
 	}
@@ -234,18 +253,16 @@ Feedback:
 	textPromptBuilder.WriteString("User's Answer:\n---\n")
 	textPromptBuilder.WriteString(userAnswer)
 	textPromptBuilder.WriteString("\n---\n\n")
-	textPromptBuilder.WriteString(outputFormatInstruction) // Hướng dẫn format output
+	textPromptBuilder.WriteString(outputFormatInstruction)
 
 	parts = append(parts, genai.Text(textPromptBuilder.String()))
 
-	// Call Gemini API
 	resp, err := s.client.GenerateContent(ctx, parts...)
 	if err != nil {
 		log.Error().Err(err).Str("questionType", question.Type).Msg("Gemini API error during scoring")
 		return fmt.Sprintf("Gemini API error: %s. Please try again.", err.Error()), 0.0, err
 	}
 
-	// Parse response
 	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
 		log.Warn().Msg("Gemini returned no candidates or parts in response.")
 		return "Gemini returned an empty or malformed response.", 0.0, fmt.Errorf("gemini returned no content")
@@ -262,19 +279,22 @@ Feedback:
 		return "Gemini returned no text content.", 0.0, fmt.Errorf("gemini returned no text content")
 	}
 
-	scoreStr, feedbackStr, parseErr := parseScoreAndFeedback(fullResponseText)
+	// Parse score and feedback. The `parseScoreAndFeedback` function needs to be robust
+	// enough to handle the new "Revised Answer" and "Relevant Vocabulary" sections for essays.
+	// For simplicity, we'll assume parseScoreAndFeedback can extract the first two parts.
+	// The fullResponseText will be used as feedback if parsing fails, and the client can display it.
+	scoreStr, feedbackContent, parseErr := parseScoreAndFeedbackWithRevised(fullResponseText, isEssayQuestion8)
 	if parseErr != nil {
-		log.Warn().Err(parseErr).Str("rawResponse", fullResponseText).Msg("Failed to parse score and feedback from Gemini response")
-		return fmt.Sprintf("Could not parse AI response. Raw: %s", fullResponseText), 0.0, parseErr
+		log.Warn().Err(parseErr).Str("rawResponse", fullResponseText).Msg("Failed to parse score and full feedback from Gemini response")
+		return fmt.Sprintf("Could not fully parse AI response. Raw: %s", fullResponseText), 0.0, parseErr
 	}
 
 	parsedScore, scoreErr := strconv.ParseFloat(strings.TrimSpace(scoreStr), 64)
 	if scoreErr != nil {
-		log.Warn().Err(scoreErr).Str("scoreStr", scoreStr).Str("feedback", feedbackStr).Msg("Failed to parse score string to float")
-		return feedbackStr, 0.0, fmt.Errorf("could not parse score value ('%s') from AI response. Feedback provided: %s", scoreStr, feedbackStr)
+		log.Warn().Err(scoreErr).Str("scoreStr", scoreStr).Str("feedback", feedbackContent).Msg("Failed to parse score string to float")
+		return feedbackContent, 0.0, fmt.Errorf("could not parse score value ('%s') from AI response. Feedback: %s", scoreStr, feedbackContent)
 	}
 
-	// Clamp score
 	if parsedScore > maxScore {
 		parsedScore = maxScore
 	}
@@ -282,5 +302,43 @@ Feedback:
 		parsedScore = 0
 	}
 
-	return strings.TrimSpace(feedbackStr), parsedScore, nil
+	return strings.TrimSpace(feedbackContent), parsedScore, nil
+}
+
+// Updated parser to handle potential new sections for essays
+func parseScoreAndFeedbackWithRevised(rawResponse string, isEssay bool) (score string, feedbackAndMore string, err error) {
+	scorePrefix := "Score:"
+	// We expect feedback to follow score. Other sections come after feedback.
+
+	scoreIndex := strings.Index(rawResponse, scorePrefix)
+	if scoreIndex == -1 {
+		return "", rawResponse, fmt.Errorf("response does not contain 'Score:' prefix. Raw: %s", rawResponse)
+	}
+
+	// Extract score value line
+	endOfScoreLine := strings.Index(rawResponse[scoreIndex:], "\n")
+	var scoreValStr string
+	var restOfResponse string
+
+	if endOfScoreLine == -1 { // Score is the last thing or only thing on its line
+		scoreValStr = strings.TrimSpace(rawResponse[scoreIndex+len(scorePrefix):])
+		restOfResponse = "" // No more content after score line
+	} else {
+		scoreValStr = strings.TrimSpace(rawResponse[scoreIndex+len(scorePrefix) : scoreIndex+endOfScoreLine])
+		restOfResponse = strings.TrimSpace(rawResponse[scoreIndex+endOfScoreLine+1:])
+	}
+
+	// Clean up scoreValStr to be just the number
+	parts := strings.Fields(scoreValStr)
+	if len(parts) > 0 {
+		scoreValStr = parts[0]
+	} else { // Should not happen if prefix found
+		return "", rawResponse, fmt.Errorf("malformed score line. Raw: %s", rawResponse)
+	}
+
+	// The rest of the response is considered "feedbackAndMore"
+	// It will contain "Feedback:", "Revised Answer:", "Relevant Vocabulary:"
+	// The client side or DTO mapping can further parse this `feedbackAndMore` string if needed.
+	// For now, we return it as a single block.
+	return scoreValStr, restOfResponse, nil
 }

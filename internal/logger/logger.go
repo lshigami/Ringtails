@@ -12,5 +12,5 @@ func Init() {
 
 	log.Logger = logger
 
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 }
