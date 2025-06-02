@@ -46,8 +46,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /home/deploy/apps/ringtails
-            export COMPOSE_DOCKER_CLI_BUILD=1
-            export DOCKER_BUILDKIT=1
             export GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
             echo "Stopping existing containers"
             docker-compose down || true
