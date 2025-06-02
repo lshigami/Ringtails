@@ -38,7 +38,7 @@ func NewGeminiLLMService(cfg *config.Config) (GeminiLLMService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Gemini client: %w", err)
 	}
-	model := client.GenerativeModel("gemini-1.5-flash")
+	model := client.GenerativeModel("gemini-2.5-pro-preview-05-06c")
 	return &geminiLLMService{client: model, cfg: cfg}, nil
 }
 
@@ -157,6 +157,7 @@ func (s *geminiLLMService) ScoreAndFeedbackAnswer(question *model.Question, user
 Please provide your evaluation in three distinct parts:
 1. Score: A numerical score for the answer, from 0.0 to %.1f (e.g., 2.5, 3.0). The score should reflect the overall quality based on all criteria.
 2. Feedback: Detailed, constructive feedback. Specifically:
+	- Using Markdown format for clarity and readability. (Use a bullet point list for each point.)
     - Identify strong points of the response.
     - Point out specific errors in grammar, vocabulary, coherence, or task achievement.
     - For each error, explain briefly why it's an error.
