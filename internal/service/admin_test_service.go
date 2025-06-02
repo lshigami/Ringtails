@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jinzhu/copier"
-	"github.com/lshigami/Ringtails/internal/dto" // Corrected DTO path
+	"github.com/lshigami/Ringtails/internal/dto"
 	"github.com/lshigami/Ringtails/internal/model"
 	"github.com/lshigami/Ringtails/internal/repository"
 	"github.com/rs/zerolog/log"
@@ -17,7 +17,7 @@ type AdminTestService interface {
 
 type adminTestService struct {
 	testRepo repository.TestRepository
-	db       *gorm.DB // db instance for potential direct use or complex transactions
+	db       *gorm.DB
 }
 
 func NewAdminTestService(testRepo repository.TestRepository, db *gorm.DB) AdminTestService {
@@ -25,39 +25,61 @@ func NewAdminTestService(testRepo repository.TestRepository, db *gorm.DB) AdminT
 }
 
 func (s *adminTestService) CreateTest(req dto.TestCreateDTO) (*dto.TestResponseDTO, error) {
-	// Validate uniqueness of OrderInTest and other question-specific rules
 	if len(req.Questions) != 8 {
 		return nil, fmt.Errorf("a test must have exactly 8 questions, received %d", len(req.Questions))
 	}
+
 	orderMap := make(map[int]bool)
+	var questionsToCreateModel []model.Question
+
 	for _, qDto := range req.Questions {
 		if _, exists := orderMap[qDto.OrderInTest]; exists {
 			return nil, fmt.Errorf("duplicate OrderInTest %d found in questions", qDto.OrderInTest)
 		}
 		orderMap[qDto.OrderInTest] = true
+
 		if qDto.OrderInTest < 1 || qDto.OrderInTest > 8 {
 			return nil, fmt.Errorf("OrderInTest must be between 1 and 8, got %d for question '%s'", qDto.OrderInTest, qDto.Title)
 		}
 
-		if qDto.Type == "sentence_picture" && (qDto.ImageURL == nil || *qDto.ImageURL == "" || qDto.GivenWord1 == nil || *qDto.GivenWord1 == "" || qDto.GivenWord2 == nil || *qDto.GivenWord2 == "") {
-			return nil, fmt.Errorf("question '%s' (Order: %d) of type 'sentence_picture' requires ImageURL, GivenWord1, and GivenWord2 to be non-empty", qDto.Title, qDto.OrderInTest)
+		// Validate MaxScore based on OrderInTest and Type
+		expectedMaxScore := 0.0
+		switch {
+		case qDto.OrderInTest >= 1 && qDto.OrderInTest <= 5: // Part 1: Q1-5
+			if qDto.Type != "sentence_picture" {
+				return nil, fmt.Errorf("question %d (Order: %d) should be type 'sentence_picture'", qDto.OrderInTest, qDto.OrderInTest)
+			}
+			expectedMaxScore = 3.0
+			if qDto.ImageURL == nil || *qDto.ImageURL == "" || qDto.GivenWord1 == nil || *qDto.GivenWord1 == "" || qDto.GivenWord2 == nil || *qDto.GivenWord2 == "" {
+				return nil, fmt.Errorf("question '%s' (Order: %d) of type 'sentence_picture' requires ImageURL, GivenWord1, and GivenWord2 to be non-empty", qDto.Title, qDto.OrderInTest)
+			}
+		case qDto.OrderInTest >= 6 && qDto.OrderInTest <= 7: // Part 2: Q6-7
+			if qDto.Type != "email_response" {
+				return nil, fmt.Errorf("question %d (Order: %d) should be type 'email_response'", qDto.OrderInTest, qDto.OrderInTest)
+			}
+			expectedMaxScore = 4.0
+		case qDto.OrderInTest == 8: // Part 3: Q8
+			if qDto.Type != "opinion_essay" {
+				return nil, fmt.Errorf("question %d (Order: %d) should be type 'opinion_essay'", qDto.OrderInTest, qDto.OrderInTest)
+			}
+			expectedMaxScore = 5.0
+		default:
+			return nil, fmt.Errorf("invalid OrderInTest: %d", qDto.OrderInTest)
 		}
-		if qDto.MaxScore <= 0 {
-			return nil, fmt.Errorf("MaxScore for question '%s' (Order: %d) must be greater than 0", qDto.Title, qDto.OrderInTest)
+
+		if qDto.MaxScore != expectedMaxScore {
+			return nil, fmt.Errorf("MaxScore for question '%s' (Order: %d, Type: %s) should be %.1f, but got %.1f", qDto.Title, qDto.OrderInTest, qDto.Type, expectedMaxScore, qDto.MaxScore)
 		}
-	}
 
-	var testModel model.Test
-	// Copy basic Test info
-	testModel.Title = req.Title
-	testModel.Description = req.Description
-
-	// Manually build questions to ensure correct association and GORM behavior
-	for _, qDto := range req.Questions {
 		var questionModel model.Question
 		copier.Copy(&questionModel, &qDto)
-		// TestID will be set by GORM automatically when creating Test with associations
-		testModel.Questions = append(testModel.Questions, questionModel)
+		questionsToCreateModel = append(questionsToCreateModel, questionModel)
+	}
+
+	testModel := model.Test{
+		Title:       req.Title,
+		Description: req.Description,
+		Questions:   questionsToCreateModel,
 	}
 
 	if err := s.testRepo.Create(&testModel); err != nil {
@@ -65,16 +87,11 @@ func (s *adminTestService) CreateTest(req dto.TestCreateDTO) (*dto.TestResponseD
 		return nil, fmt.Errorf("database error creating test: %w", err)
 	}
 
-	// The testModel now has IDs populated, including for nested Questions.
-	// We can use copier to map it to TestResponseDTO.
-	// FindByIDWithQuestions is good to ensure all associations are correctly loaded for the response.
 	createdTestWithDetails, err := s.testRepo.FindByIDWithQuestions(testModel.ID)
 	if err != nil {
 		log.Error().Err(err).Uint("testID", testModel.ID).Msg("Failed to retrieve newly created test with questions for response")
-		// Fallback: Use the model we have, though questions might not be fully "reloaded" in the same way.
-		// However, GORM populates IDs on create, so basic info is there.
 		var fallbackResp dto.TestResponseDTO
-		copier.Copy(&fallbackResp, &testModel) // testModel has IDs from the Create operation
+		copier.Copy(&fallbackResp, &testModel)
 		return &fallbackResp, nil
 	}
 
