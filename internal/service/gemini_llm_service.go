@@ -38,7 +38,7 @@ func NewGeminiLLMService(cfg *config.Config) (GeminiLLMService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Gemini client: %w", err)
 	}
-	model := client.GenerativeModel("gemini-2.5-pro-preview-05-06c")
+	model := client.GenerativeModel("gemini-2.0-flash")
 	return &geminiLLMService{client: model, cfg: cfg}, nil
 }
 
