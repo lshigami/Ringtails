@@ -47,6 +47,7 @@ jobs:
           script: |
             cd /home/deploy/apps/ringtails
             export GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
+            export POSTGRES_ROOT_PASSWORD="${{ secrets.POSTGRES_ROOT_PASSWORD }}"
             echo "Stopping existing containers"
             docker-compose down || true
             echo "Pulling latest images"
